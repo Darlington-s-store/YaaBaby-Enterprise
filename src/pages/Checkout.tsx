@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Lock, CheckCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useCart } from "@/store/useCart";
+import { useCart, useAuth } from "@/store/useCart";
+import { useOrders, useAddresses } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -14,22 +15,49 @@ const Checkout = () => {
   const items = useCart((s) => s.items);
   const subtotal = useCart((s) => s.subtotal());
   const clear = useCart((s) => s.clear);
+  const user = useAuth((s) => s.user);
+  const place = useOrders((s) => s.place);
+  const myAddresses = useAddresses((s) => (user ? s.addresses.filter((a) => a.userId === user.id) : []));
   const navigate = useNavigate();
-  const [method, setMethod] = useState("paystack");
+  const [method, setMethod] = useState<"paystack" | "momo" | "cod">("paystack");
   const [step, setStep] = useState<"form" | "success">("form");
+  const [placedId, setPlacedId] = useState<string>("");
 
+  const defaultAddr = myAddresses.find((a) => a.isDefault) ?? myAddresses[0];
+  const [form, setForm] = useState({
+    email: user?.email ?? "",
+    phone: defaultAddr?.phone ?? "",
+    firstName: user?.name?.split(" ")[0] ?? "",
+    lastName: user?.name?.split(" ").slice(1).join(" ") ?? "",
+    address: defaultAddr?.line1 ?? "",
+    city: defaultAddr?.city ?? "Accra",
+    region: defaultAddr?.region ?? "Greater Accra",
+  });
+
+  if (!user) return <Navigate to="/login" replace state={{ from: "/checkout" }} />;
   if (items.length === 0 && step !== "success") return <Navigate to="/cart" replace />;
 
   const shipping = subtotal >= 500 ? 0 : 30;
-  const total = subtotal + shipping;
+  const tax = Math.round(subtotal * 0.025);
+  const total = subtotal + shipping + tax;
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Redirecting to Paystack…");
+    const paymentLabel = method === "paystack" ? "Paystack" : method === "momo" ? "MoMo" : "Cash on delivery";
+    toast.success(method === "cod" ? "Placing your order…" : "Redirecting to Paystack…");
     setTimeout(() => {
+      const order = place({
+        userId: user.id,
+        customer: { name: `${form.firstName} ${form.lastName}`.trim(), email: form.email, phone: form.phone },
+        items: items.map((i) => ({ productId: i.productId, name: i.name, image: i.image, price: i.price, quantity: i.quantity, variant: i.variant })),
+        subtotal, shipping, tax, total,
+        payment: paymentLabel,
+        shippingAddress: { name: `${form.firstName} ${form.lastName}`.trim(), line1: form.address, city: form.city, region: form.region, phone: form.phone },
+      });
       clear();
+      setPlacedId(order.id);
       setStep("success");
-    }, 900);
+    }, 800);
   };
 
   if (step === "success") {
@@ -41,11 +69,11 @@ const Checkout = () => {
           </div>
         </motion.div>
         <h1 className="font-display text-3xl lg:text-4xl font-bold mb-3">Order confirmed</h1>
-        <p className="text-muted-foreground mb-2">Order #YBE-{Math.random().toString(36).slice(2, 8).toUpperCase()}</p>
-        <p className="text-muted-foreground mb-8">A confirmation has been sent to your email. We'll notify you when it ships.</p>
-        <div className="flex justify-center gap-3">
-          <Button variant="outline" className="rounded-full" onClick={() => navigate("/account")}>View orders</Button>
-          <Button className="rounded-full bg-primary hover:bg-primary/90" onClick={() => navigate("/shop")}>Keep shopping</Button>
+        <p className="text-muted-foreground mb-2">Order <strong className="text-foreground">{placedId}</strong></p>
+        <p className="text-muted-foreground mb-8">A confirmation has been sent to your email. Track its progress from your dashboard.</p>
+        <div className="flex justify-center gap-3 flex-wrap">
+          <Button asChild variant="outline" className="rounded-full"><Link to={`/account/orders/${placedId}`}>View order</Link></Button>
+          <Button asChild className="rounded-full bg-primary hover:bg-primary/90"><Link to="/shop">Keep shopping</Link></Button>
         </div>
       </div>
     );
@@ -59,25 +87,26 @@ const Checkout = () => {
           <section className="bg-card border rounded-2xl p-6">
             <h2 className="font-display text-lg font-bold mb-5">Contact</h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div><Label>Email</Label><Input required type="email" placeholder="you@example.com" className="mt-1.5 h-11" /></div>
-              <div><Label>Phone</Label><Input required type="tel" placeholder="+233 …" className="mt-1.5 h-11" /></div>
+              <div><Label>Email</Label><Input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1.5 h-11" /></div>
+              <div><Label>Phone</Label><Input required type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+233 …" className="mt-1.5 h-11" /></div>
             </div>
           </section>
 
           <section className="bg-card border rounded-2xl p-6">
             <h2 className="font-display text-lg font-bold mb-5">Shipping address</h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div><Label>First name</Label><Input required className="mt-1.5 h-11" /></div>
-              <div><Label>Last name</Label><Input required className="mt-1.5 h-11" /></div>
-              <div className="sm:col-span-2"><Label>Address</Label><Input required className="mt-1.5 h-11" /></div>
-              <div><Label>City</Label><Input required defaultValue="Accra" className="mt-1.5 h-11" /></div>
-              <div><Label>Region</Label><Input required defaultValue="Greater Accra" className="mt-1.5 h-11" /></div>
+              <div><Label>First name</Label><Input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="mt-1.5 h-11" /></div>
+              <div><Label>Last name</Label><Input required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="mt-1.5 h-11" /></div>
+              <div className="sm:col-span-2"><Label>Address</Label><Input required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-1.5 h-11" /></div>
+              <div><Label>City</Label><Input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="mt-1.5 h-11" /></div>
+              <div><Label>Region</Label><Input required value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} className="mt-1.5 h-11" /></div>
             </div>
+            <p className="text-xs text-muted-foreground mt-3">💡 Save more addresses anytime from your <Link to="/account/addresses" className="text-primary font-semibold">account</Link>.</p>
           </section>
 
           <section className="bg-card border rounded-2xl p-6">
             <h2 className="font-display text-lg font-bold mb-5">Payment</h2>
-            <RadioGroup value={method} onValueChange={setMethod} className="space-y-2">
+            <RadioGroup value={method} onValueChange={(v) => setMethod(v as typeof method)} className="space-y-2">
               {[
                 { id: "paystack", label: "Paystack — Card / Bank", desc: "Visa, Mastercard, bank transfer" },
                 { id: "momo", label: "Mobile Money (MoMo)", desc: "MTN, Vodafone, AirtelTigo" },
@@ -94,7 +123,7 @@ const Checkout = () => {
             </RadioGroup>
           </section>
 
-          <Button type="submit" size="lg" className="w-full rounded-full bg-primary hover:bg-primary/90 h-13 font-semibold h-12">
+          <Button type="submit" size="lg" className="w-full rounded-full bg-primary hover:bg-primary/90 h-12 font-semibold">
             <Lock className="size-4 mr-2" /> Pay {formatGHS(total)} securely
           </Button>
         </form>
@@ -103,7 +132,7 @@ const Checkout = () => {
           <h2 className="font-display text-lg font-bold">Order summary</h2>
           <div className="space-y-3 max-h-72 overflow-y-auto">
             {items.map((i) => (
-              <div key={i.productId} className="flex gap-3 text-sm">
+              <div key={i.productId + (i.variant ?? "")} className="flex gap-3 text-sm">
                 <img src={i.image} alt={i.name} className="size-14 rounded-lg object-cover bg-muted" />
                 <div className="flex-1 min-w-0">
                   <div className="line-clamp-1 font-medium">{i.name}</div>
@@ -116,6 +145,7 @@ const Checkout = () => {
           <div className="border-t pt-3 space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatGHS(subtotal)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span>{shipping === 0 ? "Free" : formatGHS(shipping)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{formatGHS(tax)}</span></div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t"><span>Total</span><span>{formatGHS(total)}</span></div>
           </div>
         </aside>
