@@ -3,9 +3,12 @@ import { useParams, Link, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Star, Minus, Plus, ShoppingBag, Heart, Truck, ShieldCheck, RotateCcw, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { products } from "@/data/catalog";
-import { useCart } from "@/store/useCart";
+import { useCart, useAuth } from "@/store/useCart";
+import { useReviews, useWishlist } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { ProductCard } from "@/components/ProductCard";
 import { toast } from "sonner";
@@ -14,8 +17,16 @@ const ProductDetail = () => {
   const { slug } = useParams();
   const product = products.find((p) => p.slug === slug);
   const add = useCart((s) => s.add);
+  const user = useAuth((s) => s.user);
+  const wishHas = useWishlist((s) => (product ? s.ids.includes(product.id) : false));
+  const wishToggle = useWishlist((s) => s.toggle);
+  const approvedReviews = useReviews((s) => s.reviews.filter((r) => r.status === "approved" && r.productId === product?.id));
+  const addReview = useReviews((s) => s.add);
   const [qty, setQty] = useState(1);
   const [variant, setVariant] = useState<string | undefined>();
+  const [revRating, setRevRating] = useState(5);
+  const [revTitle, setRevTitle] = useState("");
+  const [revBody, setRevBody] = useState("");
 
   if (!product) return <Navigate to="/shop" replace />;
 
@@ -119,8 +130,8 @@ const ProductDetail = () => {
             >
               <ShoppingBag className="size-4 mr-2" /> Add to cart · {formatGHS(product.price * qty)}
             </Button>
-            <Button size="lg" variant="outline" className="rounded-full h-12 size-12 p-0">
-              <Heart className="size-5" />
+            <Button size="lg" variant="outline" className={`rounded-full h-12 size-12 p-0 ${wishHas ? "border-destructive text-destructive" : ""}`} onClick={() => { if (!user) { toast.error("Please sign in to use the wishlist"); return; } wishToggle(product.id); toast.success(wishHas ? "Removed from wishlist" : "Saved to wishlist"); }}>
+              <Heart className={`size-5 ${wishHas ? "fill-destructive" : ""}`} />
             </Button>
           </div>
 
@@ -157,17 +168,52 @@ const ProductDetail = () => {
             <li>In stock: {product.stock} units</li>
           </ul>
         </TabsContent>
-        <TabsContent value="reviews" className="pt-8 max-w-2xl">
-          <div className="flex items-center gap-6 mb-6">
-            <div className="text-5xl font-display font-bold">{product.rating}</div>
-            <div>
-              <div className="flex gap-0.5 mb-1">
-                {[...Array(5)].map((_, i) => <Star key={i} className={`size-4 ${i < Math.floor(product.rating) ? "fill-accent text-accent" : "text-muted-foreground/30"}`} />)}
-              </div>
-              <p className="text-sm text-muted-foreground">{product.reviews} verified reviews</p>
+        <TabsContent value="reviews" className="pt-8 max-w-2xl space-y-8">
+          {approvedReviews.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No reviews yet. Be the first to share your thoughts!</p>
+          ) : (
+            <div className="space-y-4">
+              {approvedReviews.map((r) => (
+                <div key={r.id} className="border rounded-2xl p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold">{r.userName}</div>
+                    <div className="flex gap-0.5">
+                      {[...Array(5)].map((_, i) => <Star key={i} className={`size-3.5 ${i < r.rating ? "fill-accent text-accent" : "text-muted-foreground/30"}`} />)}
+                    </div>
+                  </div>
+                  <div className="font-semibold text-sm mb-1">{r.title}</div>
+                  <p className="text-sm text-muted-foreground">{r.body}</p>
+                </div>
+              ))}
             </div>
+          )}
+
+          <div className="border-t pt-6">
+            <h3 className="font-display text-lg font-bold mb-4">Write a review</h3>
+            {!user ? (
+              <p className="text-sm text-muted-foreground">Please <Link to="/login" className="text-primary font-semibold">sign in</Link> to write a review.</p>
+            ) : (
+              <form className="space-y-3" onSubmit={(e) => {
+                e.preventDefault();
+                if (!revTitle.trim() || !revBody.trim()) return toast.error("Please add a title and review");
+                addReview({ productId: product.id, userId: user.id, userName: user.name, rating: revRating, title: revTitle, body: revBody });
+                toast.success("Review submitted! It will appear once approved.");
+                setRevTitle(""); setRevBody(""); setRevRating(5);
+              }}>
+                <div className="flex gap-1">
+                  {[1,2,3,4,5].map((n) => (
+                    <button key={n} type="button" onClick={() => setRevRating(n)}>
+                      <Star className={`size-6 ${n <= revRating ? "fill-accent text-accent" : "text-muted-foreground/30"}`} />
+                    </button>
+                  ))}
+                </div>
+                <Input placeholder="Review title" value={revTitle} onChange={(e) => setRevTitle(e.target.value)} maxLength={100} />
+                <Textarea placeholder="Tell others what you think…" value={revBody} onChange={(e) => setRevBody(e.target.value)} rows={4} maxLength={1000} />
+                <Button type="submit" className="rounded-full">Submit for approval</Button>
+                <p className="text-xs text-muted-foreground">Your review will be reviewed by our team before being published.</p>
+              </form>
+            )}
           </div>
-          <p className="text-muted-foreground text-sm">Reviews UI coming next iteration.</p>
         </TabsContent>
         <TabsContent value="shipping" className="pt-8 max-w-2xl prose text-foreground/80">
           <p>Free shipping on orders above GH₵500. Standard delivery 24-48 hours within Accra; 2-4 days nationwide. Cash on delivery available.</p>
