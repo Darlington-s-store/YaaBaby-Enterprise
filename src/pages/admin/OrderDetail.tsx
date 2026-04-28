@@ -1,35 +1,34 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Mail, Phone, MapPin, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { orders, OrderStatus } from "@/data/dashboardMock";
+import { useOrders, type OrderStatus } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { StatusPill } from "./Overview";
 import { toast } from "sonner";
 
 const OrderDetail = () => {
   const { id } = useParams();
-  const order = orders.find((o) => o.id === id);
-  const [status, setStatus] = useState<OrderStatus | undefined>(order?.status);
+  const order = useOrders((s) => s.orders.find((o) => o.id === id));
+  const setStatus = useOrders((s) => s.setStatus);
 
   if (!order)
     return (
-      <div className="bg-card border rounded-2xl p-10 text-center">
+      <div className="bg-card border rounded-2xl p-10 text-center max-w-2xl">
         <p className="text-muted-foreground mb-4">Order not found.</p>
         <Link to="/admin/orders" className="text-primary font-semibold">Back to orders</Link>
       </div>
     );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <Link to="/admin/orders" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Back to orders
         </Link>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="rounded-full"><Printer className="size-4 mr-2" />Print</Button>
-          <Button size="sm" className="rounded-full" onClick={() => toast.success("Refund initiated")}>Refund</Button>
+          <Button size="sm" className="rounded-full" onClick={() => { setStatus(order.id, "Refunded"); toast.success("Refund initiated"); }}>Refund</Button>
         </div>
       </div>
 
@@ -38,12 +37,12 @@ const OrderDetail = () => {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h2 className="font-display text-2xl font-bold">{order.id}</h2>
-              <StatusPill status={status ?? order.status} />
+              <StatusPill status={order.status} />
             </div>
             <p className="text-sm text-muted-foreground">Placed {order.date} · Paid via {order.payment}</p>
           </div>
           <div className="w-48">
-            <Select value={status} onValueChange={(v) => { setStatus(v as OrderStatus); toast.success(`Status updated to ${v}`); }}>
+            <Select value={order.status} onValueChange={(v) => { setStatus(order.id, v as OrderStatus); toast.success(`Status updated to ${v}`); }}>
               <SelectTrigger className="rounded-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(["Pending", "Paid", "Shipped", "Delivered", "Cancelled", "Refunded"] as OrderStatus[]).map((s) => (
@@ -60,7 +59,7 @@ const OrderDetail = () => {
           <h3 className="font-display text-lg font-bold mb-4">Items ({order.items.length})</h3>
           <div className="space-y-4">
             {order.items.map((it) => (
-              <div key={it.productId} className="flex gap-4 items-center">
+              <div key={it.productId + (it.variant ?? "")} className="flex gap-4 items-center">
                 <img src={it.image} alt="" className="size-16 rounded-xl object-cover bg-muted" />
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold line-clamp-1">{it.name}</div>
