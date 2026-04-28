@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "@/data/catalog";
+import { useUsers } from "@/store/useStore";
 
 export type CartItem = {
   productId: string;
@@ -59,28 +60,60 @@ export const useCart = create<CartState>()(
   ),
 );
 
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "customer" | "admin";
+};
+
 type AuthState = {
-  user: { id: string; email: string; name: string; role: "customer" | "admin" } | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  user: SessionUser | null;
+  // Customer flows
+  signUp: (name: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  // Separate admin sign-in (only allows users with admin role)
+  adminSignIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => void;
+  // Profile updates
+  updateProfile: (patch: Partial<Pick<SessionUser, "name" | "email">>) => void;
 };
 
 export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      signIn: async (email) => {
-        const role = email.toLowerCase().includes("admin") ? "admin" : "customer";
-        set({
-          user: { id: crypto.randomUUID(), email, name: email.split("@")[0], role },
-        });
+      signUp: async (name, email, password) => {
+        if (!name.trim() || !email.trim() || password.length < 6) {
+          return { ok: false, error: "Please enter your name, email, and a password of 6+ characters." };
+        }
+        if (useUsers.getState().exists(email)) {
+          return { ok: false, error: "An account with this email already exists. Please sign in." };
+        }
+        const created = useUsers.getState().register(name, email, password, "customer");
+        if (!created) return { ok: false, error: "Could not create account." };
+        set({ user: { id: created.id, email: created.email, name: created.name, role: created.role } });
+        return { ok: true };
       },
-      signUp: async (name, email) => {
-        const role = email.toLowerCase().includes("admin") ? "admin" : "customer";
-        set({ user: { id: crypto.randomUUID(), email, name, role } });
+      signIn: async (email, password) => {
+        const u = useUsers.getState().authenticate(email, password);
+        if (!u) return { ok: false, error: "Invalid email or password. Don't have an account? Sign up first." };
+        if (u.role === "admin") {
+          return { ok: false, error: "Admin accounts must sign in via the admin login page." };
+        }
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role } });
+        return { ok: true };
+      },
+      adminSignIn: async (email, password) => {
+        const u = useUsers.getState().authenticate(email, password);
+        if (!u) return { ok: false, error: "Invalid admin credentials." };
+        if (u.role !== "admin") return { ok: false, error: "This account does not have admin access." };
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role } });
+        return { ok: true };
       },
       signOut: () => set({ user: null }),
+      updateProfile: (patch) =>
+        set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
     }),
     { name: "yaa-auth" },
   ),
