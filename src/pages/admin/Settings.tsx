@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 const Settings = () => (
-  <div className="space-y-6">
+  <div className="space-y-6 max-w-4xl">
     <h2 className="font-display text-2xl font-bold">Store settings</h2>
 
     <form className="bg-card border rounded-2xl p-6 space-y-4" onSubmit={(e) => { e.preventDefault(); toast.success("Store details saved"); }}>
@@ -51,24 +51,6 @@ const Settings = () => (
         </div>
       ))}
       <Button variant="outline" className="rounded-full">Add zone</Button>
-    </div>
-
-    <div className="bg-card border rounded-2xl p-6 space-y-4">
-      <h3 className="font-display text-lg font-bold">Team</h3>
-      {[
-        { name: "Admin User", email: "admin@yaababy.gh", role: "Owner" },
-        { name: "Ops Lead", email: "ops@yaababy.gh", role: "Manager" },
-      ].map((t) => (
-        <div key={t.email} className="flex items-center gap-3 border-t first:border-t-0 first:pt-0 pt-3">
-          <div className="size-10 rounded-full bg-emerald-gold grid place-items-center text-primary-foreground font-bold">{t.name[0]}</div>
-          <div className="flex-1">
-            <div className="font-semibold text-sm">{t.name}</div>
-            <div className="text-xs text-muted-foreground">{t.email}</div>
-          </div>
-          <span className="text-xs uppercase tracking-wider font-bold px-2.5 py-1 rounded-full bg-accent/20 text-accent-foreground">{t.role}</span>
-        </div>
-      ))}
-      <Button variant="outline" className="rounded-full">Invite member</Button>
     </div>
   </div>
 );
