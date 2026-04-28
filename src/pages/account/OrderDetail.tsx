@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Check, Package, Truck, Home as HomeIcon, Download } from "lucide-react";
-import { myOrders } from "@/data/dashboardMock";
+import { useAuth } from "@/store/useCart";
+import { useOrders } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
@@ -12,10 +13,12 @@ const steps = [
 
 const OrderDetail = () => {
   const { id } = useParams();
-  const order = myOrders.find((o) => o.id === id);
+  const user = useAuth((s) => s.user)!;
+  const order = useOrders((s) => s.orders.find((o) => o.id === id && o.userId === user.id));
+
   if (!order)
     return (
-      <div className="bg-card border rounded-2xl p-10 text-center">
+      <div className="bg-card border rounded-2xl p-10 text-center max-w-2xl">
         <p className="text-muted-foreground mb-4">Order not found.</p>
         <Link to="/account/orders" className="text-primary font-semibold">Back to orders</Link>
       </div>
@@ -24,7 +27,7 @@ const OrderDetail = () => {
   const order_idx = ["Pending", "Paid", "Shipped", "Delivered"].indexOf(order.status);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl">
       <Link to="/account/orders" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Back to orders
       </Link>
@@ -39,7 +42,7 @@ const OrderDetail = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-2">
-          {steps.map((s, i) => {
+          {steps.map((s) => {
             const done = order_idx >= ["Pending", "Paid", "Shipped", "Delivered"].indexOf(s.key);
             return (
               <div key={s.key} className="flex flex-col items-center gap-2 text-center">
@@ -47,7 +50,6 @@ const OrderDetail = () => {
                   <s.icon className="size-4" />
                 </div>
                 <div className="text-xs font-semibold">{s.label}</div>
-                {i < steps.length - 1 && <div className="hidden" />}
               </div>
             );
           })}
@@ -69,7 +71,7 @@ const OrderDetail = () => {
           <h3 className="font-display text-lg font-bold mb-4">Items</h3>
           <div className="space-y-4">
             {order.items.map((it) => (
-              <div key={it.productId} className="flex gap-4 items-center">
+              <div key={it.productId + (it.variant ?? "")} className="flex gap-4 items-center">
                 <img src={it.image} alt="" className="size-16 rounded-xl object-cover bg-muted" />
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold line-clamp-1">{it.name}</div>
