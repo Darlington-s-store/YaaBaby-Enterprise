@@ -3,8 +3,10 @@ import { MessageSquare, Star } from "lucide-react";
 import { useAuth } from "@/store/useCart";
 import { useReviews } from "@/store/useStore";
 import { Button } from "@/components/ui/button";
+import { useProducts } from "@/store/useProducts";
 
 const MyReviews = () => {
+  const products = useProducts((s) => s.products);
   const user = useAuth((s) => s.user)!;
   const allReviews = useReviews((s) => s.reviews);
   const mine = allReviews.filter((r) => r.userId === user.id);

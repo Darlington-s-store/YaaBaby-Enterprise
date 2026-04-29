@@ -2,8 +2,10 @@ import { motion } from "framer-motion";
 import { TrendingUp, BarChart3 } from "lucide-react";
 import { useOrders, useUsers } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
+import { useProducts } from "@/store/useProducts";
 
 const Analytics = () => {
+  const products = useProducts((s) => s.products);
   const orders = useOrders((s) => s.orders);
   const customers = useUsers((s) => s.users).filter((u) => u.role === "customer");
   const aov = orders.length ? orders.reduce((s, o) => s + o.total, 0) / orders.length : 0;

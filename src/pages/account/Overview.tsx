@@ -5,8 +5,10 @@ import { useAuth } from "@/store/useCart";
 import { useOrders, useWishlist } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { useProducts } from "@/store/useProducts";
 
 const Overview = () => {
+  const products = useProducts((s) => s.products);
   const user = useAuth((s) => s.user)!;
   const allOrders = useOrders((s) => s.orders);
   const wishlistIds = useWishlist((s) => s.ids);

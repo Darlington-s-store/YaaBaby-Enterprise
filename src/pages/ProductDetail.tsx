@@ -11,8 +11,10 @@ import { useReviews, useWishlist } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { ProductCard } from "@/components/ProductCard";
 import { toast } from "sonner";
+import { useProducts } from "@/store/useProducts";
 
 const ProductDetail = () => {
+  const products = useProducts((s) => s.products);
   const { slug } = useParams();
   const product = products.find((p) => p.slug === slug);
   const add = useCart((s) => s.add);

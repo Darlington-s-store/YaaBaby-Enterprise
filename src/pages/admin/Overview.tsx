@@ -4,8 +4,10 @@ import { TrendingUp, ShoppingBag, Users, Package, ArrowUpRight, ArrowRight, Spar
 import { useOrders, useUsers, useReviews } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { useProducts } from "@/store/useProducts";
 
 export const StatusPill = ({ status }: { status: string }) => {
+  const products = useProducts((s) => s.products);
   const cls =
     status === "Paid" || status === "Delivered" || status === "approved" ? "bg-success/15 text-success" :
     status === "Pending" || status === "pending" ? "bg-accent/20 text-accent-foreground" :

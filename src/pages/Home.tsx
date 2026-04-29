@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/ProductCard";
 import { categories, heroSlides, stats, testimonials } from "@/data/catalog";
 import heroImg from "@/assets/hero-merch.jpg";
+import { useProducts } from "@/store/useProducts";
 
 const Marquee = () => (
   <div className="bg-primary text-primary-foreground py-3 overflow-hidden border-y border-accent/20">
@@ -23,6 +24,7 @@ const Marquee = () => (
 );
 
 const Countdown = () => {
+  const products = useProducts((s) => s.products);
   const [time, setTime] = useState({ h: 23, m: 59, s: 59 });
   useEffect(() => {
     const i = setInterval(() => {

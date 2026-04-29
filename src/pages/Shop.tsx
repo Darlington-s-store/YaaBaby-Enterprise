@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { categories } from "@/data/catalog";
 import { formatGHS } from "@/lib/format";
+import { useProducts } from "@/store/useProducts";
 
 const Shop = () => {
+  const products = useProducts((s) => s.products);
   const [params, setParams] = useSearchParams();
   const cat = params.get("cat");
   const sale = params.get("sale") === "true";

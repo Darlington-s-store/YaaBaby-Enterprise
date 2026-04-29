@@ -1,6 +1,8 @@
 import { AlertTriangle, Package } from "lucide-react";
+import { useProducts } from "@/store/useProducts";
 
 const Inventory = () => {
+  const products = useProducts((s) => s.products);
   const sorted = [...products].sort((a, b) => a.stock - b.stock);
   const low = sorted.filter((p) => p.stock < 15);
 
