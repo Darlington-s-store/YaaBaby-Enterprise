@@ -24,7 +24,6 @@ const Marquee = () => (
 );
 
 const Countdown = () => {
-  const products = useProducts((s) => s.products);
   const [time, setTime] = useState({ h: 23, m: 59, s: 59 });
   useEffect(() => {
     const i = setInterval(() => {
@@ -57,6 +56,7 @@ const Countdown = () => {
 };
 
 const Home = () => {
+  const products = useProducts((s) => s.products);
   const featured = products.slice(0, 4);
   const trending = products.slice(2, 8);
 
