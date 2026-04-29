@@ -17,7 +17,8 @@ const Checkout = () => {
   const clear = useCart((s) => s.clear);
   const user = useAuth((s) => s.user);
   const place = useOrders((s) => s.place);
-  const myAddresses = useAddresses((s) => (user ? s.addresses.filter((a) => a.userId === user.id) : []));
+  const allAddresses = useAddresses((s) => s.addresses);
+  const myAddresses = user ? allAddresses.filter((a) => a.userId === user.id) : [];
   const navigate = useNavigate();
   const [method, setMethod] = useState<"paystack" | "momo" | "cod">("paystack");
   const [step, setStep] = useState<"form" | "success">("form");
