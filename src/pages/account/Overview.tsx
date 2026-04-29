@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 
 const Overview = () => {
   const user = useAuth((s) => s.user)!;
-  const myOrders = useOrders((s) => s.orders.filter((o) => o.userId === user.id));
+  const allOrders = useOrders((s) => s.orders);
   const wishlistIds = useWishlist((s) => s.ids);
+  const myOrders = allOrders.filter((o) => o.userId === user.id);
 
   const stats = [
     { label: "Total orders", value: myOrders.length, icon: Package, to: "/account/orders" },

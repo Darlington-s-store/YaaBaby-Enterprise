@@ -7,8 +7,10 @@ import { useOrders, useReviews } from "@/store/useStore";
 const AdminLayout = () => {
   const user = useAuth((s) => s.user);
   const location = useLocation();
-  const pendingOrders = useOrders((s) => s.orders.filter((o) => o.status === "Pending").length);
-  const pendingReviews = useReviews((s) => s.reviews.filter((r) => r.status === "pending").length);
+  const allOrders = useOrders((s) => s.orders);
+  const allReviews = useReviews((s) => s.reviews);
+  const pendingOrders = allOrders.filter((o) => o.status === "Pending").length;
+  const pendingReviews = allReviews.filter((r) => r.status === "pending").length;
 
   if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
   if (user.role !== "admin") return <Navigate to="/admin/login" replace />;

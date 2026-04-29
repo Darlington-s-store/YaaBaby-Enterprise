@@ -7,15 +7,16 @@ import { useOrders, useWishlist } from "@/store/useStore";
 const AccountLayout = () => {
   const user = useAuth((s) => s.user);
   const location = useLocation();
-  const myOrders = useOrders((s) => (user ? s.orders.filter((o) => o.userId === user.id) : []));
+  const allOrders = useOrders((s) => s.orders);
   const wishlistCount = useWishlist((s) => s.ids.length);
+  const myOrdersCount = user ? allOrders.filter((o) => o.userId === user.id).length : 0;
 
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
 
   const nav = [
     { to: "/account", label: "Overview", icon: LayoutDashboard, end: true },
-    { to: "/account/orders", label: "My orders", icon: Package, badge: myOrders.length || undefined },
+    { to: "/account/orders", label: "My orders", icon: Package, badge: myOrdersCount || undefined },
     { to: "/account/wishlist", label: "Wishlist", icon: Heart, badge: wishlistCount || undefined },
     { to: "/account/addresses", label: "Addresses", icon: MapPin },
     { to: "/account/reviews", label: "My reviews", icon: MessageSquare },
