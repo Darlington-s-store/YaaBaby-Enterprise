@@ -60,63 +60,73 @@ const Home = () => {
 
   return (
     <>
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-hero text-primary-foreground">
-        <div className="absolute inset-0 bg-[var(--gradient-radial-gold)] opacity-60" />
-        <div className="container-x mx-auto max-w-7xl relative grid lg:grid-cols-2 gap-10 items-center py-16 lg:py-24">
+      {/* HERO — full-bleed background image */}
+      <section className="relative overflow-hidden text-primary-foreground min-h-[640px] lg:min-h-[720px] flex items-center">
+        <img
+          src={heroImg}
+          alt="Curated YAA BABY products"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+        />
+        {/* Cinematic overlays */}
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/75 to-primary/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[var(--gradient-radial-gold)] opacity-40 mix-blend-overlay" />
+
+        <div className="container-x mx-auto max-w-7xl relative grid lg:grid-cols-12 gap-10 items-center py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="space-y-6"
+            className="space-y-6 lg:col-span-7"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-white/5 backdrop-blur px-4 py-1.5 text-xs uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-white/10 backdrop-blur px-4 py-1.5 text-xs uppercase tracking-widest">
               <Sparkles className="size-3.5 text-accent" /> {heroSlides[0].eyebrow}
             </div>
-            <h1 className="font-display text-5xl md:text-6xl lg:text-7xl leading-[1.02] font-black">
+            <h1 className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[0.95] font-black drop-shadow-lg">
               Everything you love.<br />
               <span className="text-gradient-gold italic">In one storefront.</span>
             </h1>
-            <p className="text-lg text-primary-foreground/75 max-w-lg leading-relaxed">
+            <p className="text-lg text-primary-foreground/90 max-w-xl leading-relaxed">
               Electronics, fashion, beauty, and home — curated, authenticated, and delivered across Ghana in 24 hours.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Button size="lg" asChild className="bg-gold text-accent-foreground hover:opacity-90 shadow-gold rounded-full font-semibold h-12 px-7">
                 <Link to="/shop">Shop the edit <ArrowRight className="ml-2 size-4" /></Link>
               </Button>
-              <Button size="lg" variant="outline" asChild className="rounded-full h-12 px-7 bg-white/5 border-white/20 hover:bg-white/10 text-primary-foreground">
+              <Button size="lg" variant="outline" asChild className="rounded-full h-12 px-7 bg-white/10 border-white/30 hover:bg-white/20 text-primary-foreground backdrop-blur">
                 <Link to="/about">Our story</Link>
               </Button>
             </div>
-            <div className="grid grid-cols-4 gap-4 pt-8 border-t border-white/10">
+            <div className="grid grid-cols-4 gap-4 pt-8 border-t border-white/15 max-w-xl">
               {stats.map((s) => (
                 <div key={s.label}>
                   <div className="font-display text-2xl lg:text-3xl font-bold text-accent">{s.value}</div>
-                  <div className="text-xs text-primary-foreground/60 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-primary-foreground/70 mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.2 }}
-            className="relative"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="hidden lg:block lg:col-span-5"
           >
-            <div className="relative rounded-3xl overflow-hidden shadow-elegant">
-              <img src={heroImg} alt="Curated YAA BABY products" width={1600} height={1200} className="w-full h-auto" />
-            </div>
-            <motion.div
-              animate={{ y: [0, -10, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-6 -left-6 bg-card text-foreground p-5 rounded-2xl shadow-elegant max-w-[200px] hidden md:block"
-            >
-              <div className="flex items-center gap-1 mb-1">
-                {[...Array(5)].map((_, i) => <Star key={i} className="size-3.5 fill-accent text-accent" />)}
+            <div className="bg-card/95 backdrop-blur-xl text-foreground p-6 rounded-3xl shadow-elegant max-w-sm ml-auto">
+              <div className="flex items-center gap-1 mb-2">
+                {[...Array(5)].map((_, i) => <Star key={i} className="size-4 fill-accent text-accent" />)}
               </div>
-              <p className="text-xs leading-snug text-muted-foreground">"Genuine, fast, and packaged beautifully."</p>
-              <p className="text-xs font-semibold mt-1">— Ama, Accra</p>
-            </motion.div>
+              <p className="text-sm leading-snug text-muted-foreground italic">"Genuine, fast, and packaged beautifully. The detail is unmatched in Accra."</p>
+              <div className="mt-3 pt-3 border-t flex items-center gap-3">
+                <div className="size-10 rounded-full bg-emerald-gold grid place-items-center text-primary-foreground font-bold text-sm">A</div>
+                <div>
+                  <div className="text-sm font-semibold">Ama Owusu</div>
+                  <div className="text-xs text-muted-foreground">Verified buyer · Accra</div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>

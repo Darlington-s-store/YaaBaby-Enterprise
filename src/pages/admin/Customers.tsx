@@ -6,7 +6,7 @@ import { useUsers, useOrders } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 
 const Customers = () => {
-  const allUsers = useUsers((s) => s.users.filter((u) => u.role === "customer"));
+  const allUsers = useUsers((s) => s.users).filter((u) => u.role === "customer");
   const orders = useOrders((s) => s.orders);
   const [q, setQ] = useState("");
 
