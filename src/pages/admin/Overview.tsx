@@ -17,8 +17,10 @@ export const StatusPill = ({ status }: { status: string }) => {
 
 const Overview = () => {
   const orders = useOrders((s) => s.orders);
-  const users = useUsers((s) => s.users.filter((u) => u.role === "customer"));
-  const pendingReviews = useReviews((s) => s.reviews.filter((r) => r.status === "pending").length);
+  const allUsers = useUsers((s) => s.users);
+  const allReviews = useReviews((s) => s.reviews);
+  const users = allUsers.filter((u) => u.role === "customer");
+  const pendingReviews = allReviews.filter((r) => r.status === "pending").length;
 
   const totalRev = orders.reduce((s, o) => s + (o.status !== "Cancelled" && o.status !== "Refunded" ? o.total : 0), 0);
 

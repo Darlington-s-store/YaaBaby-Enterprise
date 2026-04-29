@@ -20,7 +20,8 @@ const ProductDetail = () => {
   const user = useAuth((s) => s.user);
   const wishHas = useWishlist((s) => (product ? s.ids.includes(product.id) : false));
   const wishToggle = useWishlist((s) => s.toggle);
-  const approvedReviews = useReviews((s) => s.reviews.filter((r) => r.status === "approved" && r.productId === product?.id));
+  const allReviews = useReviews((s) => s.reviews);
+  const approvedReviews = product ? allReviews.filter((r) => r.status === "approved" && r.productId === product.id) : [];
   const addReview = useReviews((s) => s.add);
   const [qty, setQty] = useState(1);
   const [variant, setVariant] = useState<string | undefined>();

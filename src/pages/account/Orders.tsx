@@ -11,7 +11,8 @@ const tabs = ["All", "Pending", "Paid", "Shipped", "Delivered", "Cancelled"] as 
 
 const Orders = () => {
   const user = useAuth((s) => s.user)!;
-  const myOrders = useOrders((s) => s.orders.filter((o) => o.userId === user.id));
+  const allOrders = useOrders((s) => s.orders);
+  const myOrders = allOrders.filter((o) => o.userId === user.id);
   const [tab, setTab] = useState<(typeof tabs)[number]>("All");
   const [q, setQ] = useState("");
 

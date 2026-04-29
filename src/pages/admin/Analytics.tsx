@@ -6,7 +6,7 @@ import { formatGHS } from "@/lib/format";
 
 const Analytics = () => {
   const orders = useOrders((s) => s.orders);
-  const customers = useUsers((s) => s.users.filter((u) => u.role === "customer"));
+  const customers = useUsers((s) => s.users).filter((u) => u.role === "customer");
   const aov = orders.length ? orders.reduce((s, o) => s + o.total, 0) / orders.length : 0;
 
   const metrics = [

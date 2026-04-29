@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 
 const MyReviews = () => {
   const user = useAuth((s) => s.user)!;
-  const mine = useReviews((s) => s.reviews.filter((r) => r.userId === user.id));
+  const allReviews = useReviews((s) => s.reviews);
+  const mine = allReviews.filter((r) => r.userId === user.id);
 
   return (
     <div className="space-y-6 max-w-6xl">
