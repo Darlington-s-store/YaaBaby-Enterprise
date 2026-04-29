@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Heart, ShoppingBag, X } from "lucide-react";
 import { useWishlist } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/store/useCart";

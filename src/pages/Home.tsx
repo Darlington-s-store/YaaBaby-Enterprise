@@ -5,7 +5,7 @@ import { ArrowRight, Truck, ShieldCheck, RotateCcw, Sparkles, Star } from "lucid
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/ProductCard";
-import { products, categories, heroSlides, stats, testimonials } from "@/data/catalog";
+import { categories, heroSlides, stats, testimonials } from "@/data/catalog";
 import heroImg from "@/assets/hero-merch.jpg";
 
 const Marquee = () => (

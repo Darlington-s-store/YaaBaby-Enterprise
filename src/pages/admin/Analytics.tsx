@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { TrendingUp, BarChart3 } from "lucide-react";
 import { useOrders, useUsers } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { formatGHS } from "@/lib/format";
 
 const Analytics = () => {

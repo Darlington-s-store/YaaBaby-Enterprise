@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { products } from "@/data/catalog";
 import { useCart, useAuth } from "@/store/useCart";
 import { useReviews, useWishlist } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";

@@ -1,5 +1,4 @@
 import { AlertTriangle, Package } from "lucide-react";
-import { products } from "@/data/catalog";
 
 const Inventory = () => {
   const sorted = [...products].sort((a, b) => a.stock - b.stock);

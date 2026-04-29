@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Check, X, Star, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useReviews } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { toast } from "sonner";
 
 const tabs = ["pending", "approved", "rejected"] as const;

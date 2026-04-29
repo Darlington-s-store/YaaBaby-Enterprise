@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Package, Heart, Wallet, Truck, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/store/useCart";
 import { useOrders, useWishlist } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 

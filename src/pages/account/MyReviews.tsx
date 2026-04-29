@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { MessageSquare, Star } from "lucide-react";
 import { useAuth } from "@/store/useCart";
 import { useReviews } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { Button } from "@/components/ui/button";
 
 const MyReviews = () => {

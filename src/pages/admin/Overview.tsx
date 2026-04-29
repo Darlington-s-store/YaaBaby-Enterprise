@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { TrendingUp, ShoppingBag, Users, Package, ArrowUpRight, ArrowRight, Sparkles } from "lucide-react";
-import { products } from "@/data/catalog";
 import { useOrders, useUsers, useReviews } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
