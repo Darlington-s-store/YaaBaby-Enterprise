@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useProducts } from "@/store/useProducts";
 
 export const StatusPill = ({ status }: { status: string }) => {
-  const products = useProducts((s) => s.products);
   const cls =
     status === "Paid" || status === "Delivered" || status === "approved" ? "bg-success/15 text-success" :
     status === "Pending" || status === "pending" ? "bg-accent/20 text-accent-foreground" :
@@ -17,6 +16,7 @@ export const StatusPill = ({ status }: { status: string }) => {
 };
 
 const Overview = () => {
+  const products = useProducts((s) => s.products);
   const orders = useOrders((s) => s.orders);
   const allUsers = useUsers((s) => s.users);
   const allReviews = useReviews((s) => s.reviews);
