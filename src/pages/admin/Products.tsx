@@ -3,11 +3,14 @@ import { Link } from "react-router-dom";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { products, categories } from "@/data/catalog";
+import { categories } from "@/data/catalog";
+import { useProducts } from "@/store/useProducts";
 import { formatGHS } from "@/lib/format";
 import { toast } from "sonner";
 
 const Products = () => {
+  const products = useProducts((s) => s.products);
+  const remove = useProducts((s) => s.remove);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const filtered = products.filter((p) => (cat === "all" || p.category === cat) && p.name.toLowerCase().includes(q.toLowerCase()));
@@ -66,7 +69,7 @@ const Products = () => {
                   <td className="p-3 text-right">
                     <div className="flex gap-1 justify-end">
                       <Button asChild size="icon" variant="ghost" className="size-8"><Link to={`/admin/products/${p.id}`}><Pencil className="size-3.5" /></Link></Button>
-                      <Button size="icon" variant="ghost" className="size-8" onClick={() => toast.success("Product deleted")}><Trash2 className="size-3.5" /></Button>
+                      <Button size="icon" variant="ghost" className="size-8" onClick={() => { remove(p.id); toast.success("Product deleted"); }}><Trash2 className="size-3.5" /></Button>
                     </div>
                   </td>
                 </tr>
