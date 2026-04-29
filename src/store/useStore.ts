@@ -235,16 +235,38 @@ export type AppUser = {
   role: "customer" | "admin";
   createdAt: string;
   status: "active" | "blocked";
+  // Extended profile (mock)
+  phone?: string;
+  country?: string;
+  region?: string;
+  avatar?: string; // data URL or http URL
+  referralCode?: string; // referral they used at signup
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+};
+
+export type RegisterPayload = {
+  name: string;
+  email: string;
+  password: string;
+  role?: "customer" | "admin";
+  phone?: string;
+  country?: string;
+  region?: string;
+  avatar?: string;
+  referralCode?: string;
 };
 
 type UsersState = {
   users: AppUser[];
-  register: (name: string, email: string, password: string, role?: "customer" | "admin") => AppUser | null;
+  register: (payload: RegisterPayload) => AppUser | null;
   authenticate: (email: string, password: string) => AppUser | null;
   setStatus: (id: string, status: AppUser["status"]) => void;
   setRole: (id: string, role: AppUser["role"]) => void;
+  update: (id: string, patch: Partial<AppUser>) => void;
   remove: (id: string) => void;
   exists: (email: string) => boolean;
+  setPasswordByEmail: (email: string, password: string) => boolean;
 };
 
 // Seeded admin so the user can always get into the admin dashboard
@@ -256,23 +278,32 @@ const seededAdmin: AppUser = {
   role: "admin",
   createdAt: new Date().toISOString().slice(0, 10),
   status: "active",
+  emailVerified: true,
+  phoneVerified: true,
 };
 
 export const useUsers = create<UsersState>()(
   persist(
     (set, get) => ({
       users: [seededAdmin],
-      register: (name, email, password, role = "customer") => {
-        const e = email.trim().toLowerCase();
+      register: (payload) => {
+        const e = payload.email.trim().toLowerCase();
         if (get().users.some((u) => u.email.toLowerCase() === e)) return null;
         const u: AppUser = {
           id: crypto.randomUUID(),
-          name: name.trim(),
+          name: payload.name.trim(),
           email: e,
-          password,
-          role,
+          password: payload.password,
+          role: payload.role ?? "customer",
           createdAt: new Date().toISOString().slice(0, 10),
           status: "active",
+          phone: payload.phone,
+          country: payload.country,
+          region: payload.region,
+          avatar: payload.avatar,
+          referralCode: payload.referralCode,
+          emailVerified: false,
+          phoneVerified: false,
         };
         set({ users: [...get().users, u] });
         return u;
@@ -285,10 +316,62 @@ export const useUsers = create<UsersState>()(
       },
       setStatus: (id, status) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, status } : u)) })),
       setRole: (id, role) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, role } : u)) })),
+      update: (id, patch) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
       remove: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
       exists: (email) => get().users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase()),
+      setPasswordByEmail: (email, password) => {
+        const e = email.trim().toLowerCase();
+        let found = false;
+        set((s) => ({
+          users: s.users.map((u) => {
+            if (u.email.toLowerCase() === e) { found = true; return { ...u, password }; }
+            return u;
+          }),
+        }));
+        return found;
+      },
     }),
     { name: "yaa-users-v1" },
+  ),
+);
+
+// =================== OTP (mock) ===================
+// In a real app this would be sent via email/SMS provider. For demo we
+// surface the code via toast and store it for verification.
+type OtpKind = "email" | "phone" | "password-reset";
+type OtpRecord = { kind: OtpKind; target: string; code: string; createdAt: number };
+
+type OtpState = {
+  pending: OtpRecord[];
+  issue: (kind: OtpKind, target: string) => string;
+  verify: (kind: OtpKind, target: string, code: string) => boolean;
+  clear: (kind: OtpKind, target: string) => void;
+};
+
+export const useOtp = create<OtpState>()(
+  persist(
+    (set, get) => ({
+      pending: [],
+      issue: (kind, target) => {
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const t = target.trim().toLowerCase();
+        const others = get().pending.filter((p) => !(p.kind === kind && p.target === t));
+        set({ pending: [...others, { kind, target: t, code, createdAt: Date.now() }] });
+        return code;
+      },
+      verify: (kind, target, code) => {
+        const t = target.trim().toLowerCase();
+        const rec = get().pending.find((p) => p.kind === kind && p.target === t);
+        if (!rec) return false;
+        const fresh = Date.now() - rec.createdAt < 15 * 60 * 1000; // 15 min
+        return fresh && rec.code === code.trim();
+      },
+      clear: (kind, target) => {
+        const t = target.trim().toLowerCase();
+        set((s) => ({ pending: s.pending.filter((p) => !(p.kind === kind && p.target === t)) }));
+      },
+    }),
+    { name: "yaa-otp-v1" },
   ),
 );
 
