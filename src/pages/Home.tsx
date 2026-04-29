@@ -5,8 +5,9 @@ import { ArrowRight, Truck, ShieldCheck, RotateCcw, Sparkles, Star } from "lucid
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductCard } from "@/components/ProductCard";
-import { products, categories, heroSlides, stats, testimonials } from "@/data/catalog";
+import { categories, heroSlides, stats, testimonials } from "@/data/catalog";
 import heroImg from "@/assets/hero-merch.jpg";
+import { useProducts } from "@/store/useProducts";
 
 const Marquee = () => (
   <div className="bg-primary text-primary-foreground py-3 overflow-hidden border-y border-accent/20">
@@ -55,6 +56,7 @@ const Countdown = () => {
 };
 
 const Home = () => {
+  const products = useProducts((s) => s.products);
   const featured = products.slice(0, 4);
   const trending = products.slice(2, 8);
 

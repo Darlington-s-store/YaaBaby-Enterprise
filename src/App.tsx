@@ -10,6 +10,11 @@ import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
+import VerifyPhone from "./pages/VerifyPhone";
 import AdminLogin from "./pages/AdminLogin";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -78,6 +83,7 @@ const App = () => (
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
             <Route path="products" element={<AdminProducts />} />
+            <Route path="products/new" element={<AdminProductEditor />} />
             <Route path="products/:id" element={<AdminProductEditor />} />
             <Route path="inventory" element={<AdminInventory />} />
             <Route path="categories" element={<AdminCategories />} />
@@ -91,6 +97,11 @@ const App = () => (
 
           {/* Auth pages — full screen */}
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-phone" element={<VerifyPhone />} />
           <Route path="/admin/login" element={<AdminLogin />} />
 
           <Route path="*" element={<NotFound />} />

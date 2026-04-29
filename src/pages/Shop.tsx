@@ -7,10 +7,12 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
-import { products, categories } from "@/data/catalog";
+import { categories } from "@/data/catalog";
 import { formatGHS } from "@/lib/format";
+import { useProducts } from "@/store/useProducts";
 
 const Shop = () => {
+  const products = useProducts((s) => s.products);
   const [params, setParams] = useSearchParams();
   const cat = params.get("cat");
   const sale = params.get("sale") === "true";

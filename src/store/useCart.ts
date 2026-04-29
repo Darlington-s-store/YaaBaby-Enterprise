@@ -65,50 +65,73 @@ export type SessionUser = {
   email: string;
   name: string;
   role: "customer" | "admin";
+  avatar?: string;
+};
+
+export type SignUpExtras = {
+  phone?: string;
+  country?: string;
+  region?: string;
+  avatar?: string;
+  referralCode?: string;
 };
 
 type AuthState = {
   user: SessionUser | null;
-  // Customer flows
-  signUp: (name: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  // Separate admin sign-in (only allows users with admin role)
+  remember: boolean;
+  signUp: (name: string, email: string, password: string, extras?: SignUpExtras) => Promise<{ ok: boolean; error?: string }>;
+  signIn: (email: string, password: string, remember?: boolean) => Promise<{ ok: boolean; error?: string }>;
   adminSignIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => void;
-  // Profile updates
-  updateProfile: (patch: Partial<Pick<SessionUser, "name" | "email">>) => void;
+  updateProfile: (patch: Partial<Pick<SessionUser, "name" | "email" | "avatar">>) => void;
+  // Mock Google sign in (creates account if missing)
+  googleSignIn: (mockEmail?: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
 export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      signUp: async (name, email, password) => {
+      remember: true,
+      signUp: async (name, email, password, extras) => {
         if (!name.trim() || !email.trim() || password.length < 6) {
           return { ok: false, error: "Please enter your name, email, and a password of 6+ characters." };
         }
         if (useUsers.getState().exists(email)) {
           return { ok: false, error: "An account with this email already exists. Please sign in." };
         }
-        const created = useUsers.getState().register(name, email, password, "customer");
+        const created = useUsers.getState().register({
+          name, email, password, role: "customer", ...extras,
+        });
         if (!created) return { ok: false, error: "Could not create account." };
-        set({ user: { id: created.id, email: created.email, name: created.name, role: created.role } });
+        set({ user: { id: created.id, email: created.email, name: created.name, role: created.role, avatar: created.avatar } });
         return { ok: true };
       },
-      signIn: async (email, password) => {
+      signIn: async (email, password, remember = true) => {
         const u = useUsers.getState().authenticate(email, password);
         if (!u) return { ok: false, error: "Invalid email or password. Don't have an account? Sign up first." };
         if (u.role === "admin") {
           return { ok: false, error: "Admin accounts must sign in via the admin login page." };
         }
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role } });
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar }, remember });
         return { ok: true };
       },
       adminSignIn: async (email, password) => {
         const u = useUsers.getState().authenticate(email, password);
         if (!u) return { ok: false, error: "Invalid admin credentials." };
         if (u.role !== "admin") return { ok: false, error: "This account does not have admin access." };
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role } });
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar } });
+        return { ok: true };
+      },
+      googleSignIn: async (mockEmail) => {
+        // Mock Google sign-in: creates an account on the fly with a fake name based on the email.
+        const email = (mockEmail ?? "google.user@gmail.com").trim().toLowerCase();
+        const name = email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const existing = useUsers.getState().users.find((u) => u.email.toLowerCase() === email);
+        const u = existing ?? useUsers.getState().register({ name, email, password: "google-oauth-mock", role: "customer" });
+        if (!u) return { ok: false, error: "Could not sign in with Google." };
+        if (u.role === "admin") return { ok: false, error: "Admin accounts must use the admin login page." };
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar } });
         return { ok: true };
       },
       signOut: () => set({ user: null }),

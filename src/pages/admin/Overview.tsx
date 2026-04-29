@@ -1,10 +1,10 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { TrendingUp, ShoppingBag, Users, Package, ArrowUpRight, ArrowRight, Sparkles } from "lucide-react";
-import { products } from "@/data/catalog";
 import { useOrders, useUsers, useReviews } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { useProducts } from "@/store/useProducts";
 
 export const StatusPill = ({ status }: { status: string }) => {
   const cls =
@@ -16,6 +16,7 @@ export const StatusPill = ({ status }: { status: string }) => {
 };
 
 const Overview = () => {
+  const products = useProducts((s) => s.products);
   const orders = useOrders((s) => s.orders);
   const allUsers = useUsers((s) => s.users);
   const allReviews = useReviews((s) => s.reviews);

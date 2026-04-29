@@ -3,12 +3,13 @@ import { Link } from "react-router-dom";
 import { Check, X, Star, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useReviews } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { toast } from "sonner";
+import { useProducts } from "@/store/useProducts";
 
 const tabs = ["pending", "approved", "rejected"] as const;
 
 const Reviews = () => {
+  const products = useProducts((s) => s.products);
   const all = useReviews((s) => s.reviews);
   const setStatus = useReviews((s) => s.setStatus);
   const remove = useReviews((s) => s.remove);

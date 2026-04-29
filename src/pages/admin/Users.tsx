@@ -35,7 +35,7 @@ const Users = () => {
             <DialogHeader><DialogTitle>Create user</DialogTitle></DialogHeader>
             <form className="space-y-3" onSubmit={(e) => {
               e.preventDefault();
-              const created = register(name, email, password, role);
+              const created = register({ name, email, password, role });
               if (!created) return toast.error("That email is already registered");
               toast.success(`${role === "admin" ? "Admin" : "Customer"} created`);
               setOpen(false); setName(""); setEmail(""); setPassword("");

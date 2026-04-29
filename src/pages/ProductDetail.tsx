@@ -6,14 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { products } from "@/data/catalog";
 import { useCart, useAuth } from "@/store/useCart";
 import { useReviews, useWishlist } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { ProductCard } from "@/components/ProductCard";
 import { toast } from "sonner";
+import { useProducts } from "@/store/useProducts";
 
 const ProductDetail = () => {
+  const products = useProducts((s) => s.products);
   const { slug } = useParams();
   const product = products.find((p) => p.slug === slug);
   const add = useCart((s) => s.add);

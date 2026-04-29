@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
 import { Heart, ShoppingBag, X } from "lucide-react";
 import { useWishlist } from "@/store/useStore";
-import { products } from "@/data/catalog";
 import { formatGHS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/store/useCart";
 import { toast } from "sonner";
+import { useProducts } from "@/store/useProducts";
 
 const Wishlist = () => {
+  const products = useProducts((s) => s.products);
   const { ids, toggle } = useWishlist();
   const items = products.filter((p) => ids.includes(p.id));
   const add = useCart((s) => s.add);
