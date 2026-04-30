@@ -1,12 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShoppingBag, User, Menu, X, Heart } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X, Heart, Camera } from "lucide-react";
+import { useNotifications } from "@/store/useNotifications";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart, useAuth } from "@/store/useCart";
 import { categories } from "@/data/catalog";
 import { cn } from "@/lib/utils";
+import { NotificationCenter } from "./NotificationCenter";
 
 const navLinks = [
   { label: "Shop", href: "/shop" },
@@ -65,13 +67,55 @@ export const Header = () => {
             ))}
           </nav>
 
+          <div className="hidden lg:flex items-center gap-2 ml-4 mr-4">
+            {!user ? (
+              <>
+                <Button variant="ghost" size="sm" asChild className="rounded-full">
+                  <Link to="/login">Login</Link>
+                </Button>
+                <Button size="sm" asChild className="rounded-full bg-primary hover:bg-primary/90">
+                  <Link to="/register">Sign up</Link>
+                </Button>
+              </>
+            ) : (
+              <Button variant="ghost" size="sm" asChild className="rounded-full gap-2">
+                <Link to={user.role !== "Customer" ? "/admin" : "/account"}>
+                  <div className="size-6 rounded-full bg-emerald-gold grid place-items-center text-[10px] font-bold text-primary-foreground">
+                    {user.name[0]?.toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium">{user.name.split(" ")[0]}</span>
+                </Link>
+              </Button>
+            )}
+          </div>
+
           <div className="hidden md:flex flex-1 max-w-xl mx-auto">
             <div className="relative w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Search products, brands, categories…"
-                className="pl-11 h-11 rounded-full bg-muted/60 border-transparent focus-visible:bg-background"
+                className="pl-11 pr-11 h-11 rounded-full bg-muted/60 border-transparent focus-visible:bg-background"
               />
+              <button 
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                onClick={() => {
+                  useNotifications.getState().addNotification({
+                    type: "search",
+                    title: "Image Uploaded 📸",
+                    message: "Customer uploaded an image for visual search.",
+                    link: "/admin/analytics"
+                  });
+                  useNotifications.getState().addNotification({
+                    type: "admin_alert",
+                    title: "New Image Search 📸",
+                    message: "A new visual search request has been uploaded.",
+                    link: "/admin/analytics"
+                  });
+                }}
+              >
+                <Camera className="size-4" />
+              </button>
             </div>
           </div>
 
@@ -82,8 +126,9 @@ export const Header = () => {
             <Button variant="ghost" size="icon" className="hidden sm:inline-flex" asChild>
               <Link to="/account"><Heart className="size-5" /></Link>
             </Button>
+            <NotificationCenter />
             <Button variant="ghost" size="icon" asChild>
-              <Link to={user ? (user.role === "admin" ? "/admin" : "/account") : "/login"}>
+              <Link to={user ? (user.role !== "Customer" ? "/admin" : "/account") : "/login"}>
                 <User className="size-5" />
               </Link>
             </Button>
@@ -138,6 +183,25 @@ export const Header = () => {
                     className="block py-3 px-3 rounded-lg hover:bg-muted text-base font-medium"
                   >{l.label}</Link>
                 ))}
+                {!user ? (
+                  <div className="grid grid-cols-2 gap-2 p-3 pt-4">
+                    <Button variant="outline" asChild className="rounded-full" onClick={() => setMobileOpen(false)}>
+                      <Link to="/login">Login</Link>
+                    </Button>
+                    <Button asChild className="rounded-full" onClick={() => setMobileOpen(false)}>
+                      <Link to="/register">Sign up</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <Link
+                    to={user.role !== "Customer" ? "/admin" : "/account"}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-muted text-base font-medium text-primary"
+                  >
+                    <User className="size-5" />
+                    Dashboard
+                  </Link>
+                )}
               </nav>
               <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3 px-3">Categories</div>
               <div className="space-y-1">

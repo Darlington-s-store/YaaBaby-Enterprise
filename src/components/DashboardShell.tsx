@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
+import { NotificationCenter } from "./NotificationCenter";
+
 export type DashNav = { to: string; label: string; icon: LucideIcon; badge?: string | number; end?: boolean };
 
 type Props = {
@@ -34,7 +36,7 @@ export const DashboardShell = ({ variant, brandLabel, nav, profilePath, settings
   return (
     <div className="min-h-screen flex bg-muted/30">
       {/* SIDEBAR */}
-      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r bg-card">
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r bg-card sticky top-0 h-screen">
         <div className="px-5 py-5 border-b">
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-bold">
             <span className="size-9 rounded-xl bg-emerald-gold grid place-items-center text-primary-foreground font-black">Y</span>
@@ -81,10 +83,7 @@ export const DashboardShell = ({ variant, brandLabel, nav, profilePath, settings
               <Input placeholder={searchPlaceholder ?? "Search…"} className="pl-10 h-10 rounded-full bg-muted/60 border-transparent" />
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="rounded-full relative">
-                <Bell className="size-5" />
-                <span className="absolute top-2 right-2 size-2 rounded-full bg-accent" />
-              </Button>
+              <NotificationCenter />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

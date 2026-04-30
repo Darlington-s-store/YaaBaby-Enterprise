@@ -20,7 +20,7 @@ const Login = () => {
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) return <Navigate to={user.role === "admin" ? "/admin" : redirectTo} replace />;
+  if (user) return <Navigate to={user.role !== "Customer" ? "/admin" : redirectTo} replace />;
 
   const onSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,10 +52,7 @@ const Login = () => {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-3xl font-bold mb-1.5">Sign in</h1>
-          <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-primary font-semibold">Create one</Link>
-          </p>
+          <p className="text-sm text-muted-foreground">Welcome back! Please enter your details.</p>
         </div>
 
         <GoogleButton onClick={onGoogle} disabled={submitting} />
@@ -85,9 +82,14 @@ const Login = () => {
           </Button>
         </form>
 
-        <p className="text-[11px] text-center text-muted-foreground">
-          Are you an admin? <Link to="/admin/login" className="text-primary font-semibold">Use the admin login</Link>
+        <Button variant="outline" className="w-full h-11 rounded-full border-muted-foreground/20" asChild>
+          <Link to="/register">Create new account</Link>
+        </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          By signing in, you agree to our Terms of Service and Privacy Policy.
         </p>
+
       </div>
     </AuthShell>
   );

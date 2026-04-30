@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Category, Subcategory, Brand } from "@/data/taxonomy";
 import { defaultCategories } from "@/data/taxonomy";
+import { useNotifications } from "./useNotifications";
 
 // =================== TAXONOMY (Admin managed) ===================
 type TaxonomyState = {
@@ -93,12 +94,21 @@ export type Review = {
   body: string;
   createdAt: string;
   status: "pending" | "approved" | "rejected";
+  flagged?: boolean;
+  reply?: {
+    text: string;
+    adminName: string;
+    date: string;
+  };
+  images?: string[];
 };
 
 type ReviewsState = {
   reviews: Review[];
   add: (r: Omit<Review, "id" | "createdAt" | "status">) => void;
   setStatus: (id: string, status: Review["status"]) => void;
+  reply: (id: string, text: string, adminName: string) => void;
+  toggleFlag: (id: string) => void;
   remove: (id: string) => void;
 };
 
@@ -114,6 +124,15 @@ export const useReviews = create<ReviewsState>()(
           ],
         })),
       setStatus: (id, status) => set((s) => ({ reviews: s.reviews.map((r) => (r.id === id ? { ...r, status } : r)) })),
+      reply: (id, text, adminName) => set((s) => ({
+        reviews: s.reviews.map((r) => r.id === id ? { 
+          ...r, 
+          reply: { text, adminName, date: new Date().toISOString() } 
+        } : r)
+      })),
+      toggleFlag: (id) => set((s) => ({
+        reviews: s.reviews.map((r) => r.id === id ? { ...r, flagged: !r.flagged } : r)
+      })),
       remove: (id) => set((s) => ({ reviews: s.reviews.filter((r) => r.id !== id) })),
     }),
     { name: "yaa-reviews-v1" },
@@ -189,12 +208,15 @@ export type Order = {
   payment: "Paystack" | "MoMo" | "Card" | "Cash on delivery";
   shippingAddress: { name: string; line1: string; city: string; region: string; phone: string };
   tracking?: string;
+  deliveryPartnerId?: string;
+  trackingUrl?: string;
 };
 
 type OrdersState = {
   orders: Order[];
   place: (o: Omit<Order, "id" | "date" | "status">) => Order;
   setStatus: (id: string, status: OrderStatus) => void;
+  assignPartner: (id: string, partnerId: string, trackingUrl?: string) => void;
   remove: (id: string) => void;
 };
 
@@ -210,29 +232,298 @@ export const useOrders = create<OrdersState>()(
           status: "Pending",
         };
         set({ orders: [order, ...get().orders] });
+
+        // Notifications
+        useNotifications.getState().addNotification({
+          type: "order",
+          title: "Order Placed! 🛒",
+          message: `Your order ${order.id} has been received and is pending payment.`,
+          link: `/account/orders/${order.id}`,
+        });
+
+        useNotifications.getState().addNotification({
+          type: "admin_alert",
+          title: "New Order Received 🛍️",
+          message: `${order.customer.name} just placed an order for GH₵${order.total.toFixed(2)}.`,
+          link: `/admin/orders/${order.id}`,
+        });
+
         return order;
       },
-      setStatus: (id, status) =>
+      setStatus: (id, status) => {
         set((s) => ({
           orders: s.orders.map((o) =>
             o.id === id
               ? { ...o, status, tracking: status === "Shipped" || status === "Delivered" ? o.tracking ?? `GH${Math.floor(Math.random() * 9000000 + 1000000)}` : o.tracking }
               : o,
           ),
-        })),
+        }));
+
+        // Notification for status change
+        const order = get().orders.find(o => o.id === id);
+        if (order) {
+          const statusMessages: Record<string, string> = {
+            Paid: "Payment confirmed 💳. We are processing your order.",
+            Shipped: "Order shipped 🚚. Your package is on its way!",
+            Delivered: "Order delivered ✅. Enjoy your purchase!",
+            Cancelled: "Order cancelled ❌. Contact support for details.",
+            Refunded: "Refund processed 💰. The amount should reflect soon.",
+          };
+
+          if (statusMessages[status]) {
+            useNotifications.getState().addNotification({
+              type: "order",
+              title: `Order ${status}`,
+              message: statusMessages[status],
+              link: `/account/orders/${id}`,
+            });
+          }
+        }
+      },
+      assignPartner: (id, partnerId, trackingUrl) => set((s) => ({
+        orders: s.orders.map((o) => o.id === id ? { ...o, deliveryPartnerId: partnerId, trackingUrl: trackingUrl || o.trackingUrl } : o)
+      })),
       remove: (id) => set((s) => ({ orders: s.orders.filter((o) => o.id !== id) })),
     }),
     { name: "yaa-orders-v1" },
   ),
 );
 
+// =================== PAYMENT METHODS (per user) ===================
+export type PaymentMethod = {
+  id: string;
+  userId: string;
+  type: "card" | "momo";
+  provider: string; // e.g. "MTN", "Visa", "Mastercard", "AirtelTigo", "Vodafone"
+  last4?: string; // for card
+  expiry?: string; // for card
+  phoneNumber?: string; // for momo
+  nameOnAccount: string;
+  isDefault: boolean;
+};
+
+type PaymentMethodsState = {
+  methods: PaymentMethod[];
+  add: (m: Omit<PaymentMethod, "id">) => void;
+  remove: (id: string) => void;
+  setDefault: (userId: string, id: string) => void;
+};
+
+export const usePaymentMethods = create<PaymentMethodsState>()(
+  persist(
+    (set) => ({
+      methods: [],
+      add: (m) =>
+        set((s) => ({
+          methods: [
+            ...s.methods.map((x) => (x.userId === m.userId && m.isDefault ? { ...x, isDefault: false } : x)),
+            { ...m, id: crypto.randomUUID() },
+          ],
+        })),
+      remove: (id) => set((s) => ({ methods: s.methods.filter((m) => m.id !== id) })),
+      setDefault: (userId, id) =>
+        set((s) => ({
+          methods: s.methods.map((m) => (m.userId === userId ? { ...m, isDefault: m.id === id } : m)),
+        })),
+    }),
+    { name: "yaa-payment-methods-v1" },
+  ),
+);
+
+
+// =================== TRANSACTIONS (Financial records) ===================
+export type Transaction = {
+  id: string;
+  orderId: string;
+  reference: string;
+  customerName: string;
+  customerEmail: string;
+  amount: number;
+  channel: "Paystack" | "MoMo" | "Bank Transfer" | "Cash on delivery";
+  status: "success" | "pending" | "failed" | "reversed";
+  date: string;
+  receiptUrl?: string;
+};
+
+type TransactionsState = {
+  transactions: Transaction[];
+  add: (t: Omit<Transaction, "id" | "date">) => void;
+  setStatus: (id: string, status: Transaction["status"]) => void;
+  remove: (id: string) => void;
+};
+
+export const useTransactions = create<TransactionsState>()(
+  persist(
+    (set) => ({
+      transactions: [
+        {
+          id: "tx-1",
+          orderId: "YBE-K8J2S9",
+          reference: "pstk_902183021",
+          customerName: "Ama Serwaa",
+          customerEmail: "ama@example.com",
+          amount: 450.00,
+          channel: "Paystack",
+          status: "success",
+          date: new Date().toISOString(),
+        },
+        {
+          id: "tx-2",
+          orderId: "YBE-L0P4M2",
+          reference: "momo_8829102",
+          customerName: "Kofi Arhin",
+          customerEmail: "kofi@example.com",
+          amount: 120.50,
+          channel: "MoMo",
+          status: "success",
+          date: new Date(Date.now() - 86400000).toISOString(),
+        },
+        {
+          id: "tx-3",
+          orderId: "YBE-H7G5F3",
+          reference: "offline_bnk_992",
+          customerName: "Sarah Mensah",
+          customerEmail: "sarah@gmail.com",
+          amount: 2100.00,
+          channel: "Bank Transfer",
+          status: "pending",
+          date: new Date(Date.now() - 172800000).toISOString(),
+        }
+      ],
+      add: (t) => set((s) => ({
+        transactions: [
+          { ...t, id: crypto.randomUUID(), date: new Date().toISOString() },
+          ...s.transactions
+        ]
+      })),
+      setStatus: (id, status) => set((s) => ({
+        transactions: s.transactions.map((t) => t.id === id ? { ...t, status } : t)
+      })),
+      remove: (id) => set((s) => ({
+        transactions: s.transactions.filter((t) => t.id !== id)
+      }))
+    }),
+    { name: "yaa-transactions-v1" }
+  )
+);
+
+
+// =================== SHIPPING & DELIVERY ===================
+
+export type ShippingMethod = {
+  id: string;
+  name: string;
+  type: "flat" | "weight" | "free_threshold";
+  price: number;
+  threshold?: number; // for free_threshold
+  minWeight?: number;
+  maxWeight?: number;
+};
+
+export type ShippingZone = {
+  id: string;
+  name: string;
+  regions: string[]; // e.g. ["Greater Accra", "Ashanti"]
+  methods: ShippingMethod[];
+  enabled: boolean;
+};
+
+type ShippingState = {
+  zones: ShippingZone[];
+  addZone: (z: Omit<ShippingZone, "id">) => void;
+  updateZone: (id: string, patch: Partial<ShippingZone>) => void;
+  removeZone: (id: string) => void;
+  addMethod: (zoneId: string, m: Omit<ShippingMethod, "id">) => void;
+  removeMethod: (zoneId: string, methodId: string) => void;
+};
+
+export const useShipping = create<ShippingState>()(
+  persist(
+    (set) => ({
+      zones: [
+        {
+          id: "gh-main",
+          name: "Ghana (Standard)",
+          regions: ["Greater Accra", "Ashanti", "Central"],
+          enabled: true,
+          methods: [
+            { id: "flat-1", name: "Flat Rate", type: "flat", price: 20 },
+            { id: "free-1", name: "Free over 500", type: "free_threshold", price: 0, threshold: 500 }
+          ]
+        }
+      ],
+      addZone: (z) => set((s) => ({ zones: [...s.zones, { ...z, id: crypto.randomUUID() }] })),
+      updateZone: (id, patch) => set((s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
+      removeZone: (id) => set((s) => ({ zones: s.zones.filter((z) => z.id !== id) })),
+      addMethod: (zoneId, m) => set((s) => ({
+        zones: s.zones.map((z) => z.id === zoneId ? { ...z, methods: [...z.methods, { ...m, id: crypto.randomUUID() }] } : z)
+      })),
+      removeMethod: (zoneId, methodId) => set((s) => ({
+        zones: s.zones.map((z) => z.id === zoneId ? { ...z, methods: z.methods.filter((m) => m.id !== methodId) } : z)
+      }))
+    }),
+    { name: "yaa-shipping-v1" }
+  )
+);
+
+export type DeliveryPartner = {
+  id: string;
+  name: string;
+  contact: string;
+  trackingUrlTemplate: string; // e.g. "https://fedex.com/track?id={{id}}"
+  status: "active" | "inactive";
+};
+
+type DeliveryPartnersState = {
+  partners: DeliveryPartner[];
+  add: (p: Omit<DeliveryPartner, "id">) => void;
+  update: (id: string, patch: Partial<DeliveryPartner>) => void;
+  remove: (id: string) => void;
+};
+
+export const useDeliveryPartners = create<DeliveryPartnersState>()(
+  persist(
+    (set) => ({
+      partners: [
+        { id: "p-1", name: "FedEx Ghana", contact: "+233 302 123456", trackingUrlTemplate: "https://fedex.com/track?q={{id}}", status: "active" },
+        { id: "p-2", name: "DHL Express", contact: "+233 302 654321", trackingUrlTemplate: "https://dhl.com/track?id={{id}}", status: "active" }
+      ],
+      add: (p) => set((s) => ({ partners: [...s.partners, { ...p, id: crypto.randomUUID() }] })),
+      update: (id, patch) => set((s) => ({ partners: s.partners.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+      remove: (id) => set((s) => ({ partners: s.partners.filter((p) => p.id !== id) }))
+    }),
+    { name: "yaa-delivery-partners-v1" }
+  )
+);
+
 // =================== USERS (registry of all signed-up accounts) ===================
+export type AdminRole = "Super Admin" | "Admin" | "Manager" | "Support Agent" | "Customer";
+
+export type AdminPermissions = {
+  can_edit_products: boolean;
+  can_view_analytics: boolean;
+  can_process_refunds: boolean;
+  can_manage_users: boolean;
+  can_manage_inventory: boolean;
+  can_view_logs: boolean;
+};
+
+export type AdminActivity = {
+  id: string;
+  action: string;
+  target: string;
+  timestamp: string;
+  ip?: string;
+};
+
 export type AppUser = {
   id: string;
   name: string;
   email: string;
   password: string; // demo only — never do this in production
-  role: "customer" | "admin";
+  role: AdminRole;
+  permissions?: AdminPermissions;
+  activities?: AdminActivity[];
   createdAt: string;
   status: "active" | "blocked";
   // Extended profile (mock)
@@ -249,7 +540,8 @@ export type RegisterPayload = {
   name: string;
   email: string;
   password: string;
-  role?: "customer" | "admin";
+  role?: AdminRole;
+  permissions?: AdminPermissions;
   phone?: string;
   country?: string;
   region?: string;
@@ -259,14 +551,35 @@ export type RegisterPayload = {
 
 type UsersState = {
   users: AppUser[];
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   register: (payload: RegisterPayload) => AppUser | null;
   authenticate: (email: string, password: string) => AppUser | null;
   setStatus: (id: string, status: AppUser["status"]) => void;
-  setRole: (id: string, role: AppUser["role"]) => void;
+  setRole: (id: string, role: AdminRole, permissions?: AdminPermissions) => void;
   update: (id: string, patch: Partial<AppUser>) => void;
+  logActivity: (userId: string, action: string, target: string) => void;
   remove: (id: string) => void;
   exists: (email: string) => boolean;
   setPasswordByEmail: (email: string, password: string) => boolean;
+};
+
+const defaultPermissions: AdminPermissions = {
+  can_edit_products: true,
+  can_view_analytics: true,
+  can_process_refunds: false,
+  can_manage_users: false,
+  can_manage_inventory: true,
+  can_view_logs: true,
+};
+
+const superAdminPermissions: AdminPermissions = {
+  can_edit_products: true,
+  can_view_analytics: true,
+  can_process_refunds: true,
+  can_manage_users: true,
+  can_manage_inventory: true,
+  can_view_logs: true,
 };
 
 // Seeded admin so the user can always get into the admin dashboard
@@ -275,7 +588,9 @@ const seededAdmin: AppUser = {
   name: "Yaa Baby Admin",
   email: "admin@yaababy.gh",
   password: "admin1234",
-  role: "admin",
+  role: "Super Admin",
+  permissions: superAdminPermissions,
+  activities: [],
   createdAt: new Date().toISOString().slice(0, 10),
   status: "active",
   emailVerified: true,
@@ -286,15 +601,23 @@ export const useUsers = create<UsersState>()(
   persist(
     (set, get) => ({
       users: [seededAdmin],
+      _hasHydrated: false,
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
       register: (payload) => {
         const e = payload.email.trim().toLowerCase();
         if (get().users.some((u) => u.email.toLowerCase() === e)) return null;
+        
+        const role = payload.role ?? "Customer";
+        const permissions = payload.permissions || (role === "Super Admin" ? superAdminPermissions : (role === "Customer" ? undefined : defaultPermissions));
+
         const u: AppUser = {
-          id: crypto.randomUUID(),
+          id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
           name: payload.name.trim(),
           email: e,
           password: payload.password,
-          role: payload.role ?? "customer",
+          role,
+          permissions,
+          activities: [],
           createdAt: new Date().toISOString().slice(0, 10),
           status: "active",
           phone: payload.phone,
@@ -305,7 +628,26 @@ export const useUsers = create<UsersState>()(
           emailVerified: false,
           phoneVerified: false,
         };
+        
         set({ users: [...get().users, u] });
+
+        // Notifications
+        useNotifications.getState().addNotification({
+          type: "account",
+          title: "Account Created ✅",
+          message: `Welcome to YaaBaby, ${u.name}! Start exploring our baby essentials.`,
+          link: "/account",
+        });
+
+        if (role !== "Customer") {
+          useNotifications.getState().addNotification({
+            type: "admin_alert",
+            title: "New Admin Registered 🛡️",
+            message: `${u.name} has been added as ${role}.`,
+            link: "/admin/management",
+          });
+        }
+
         return u;
       },
       authenticate: (email, password) => {
@@ -315,8 +657,26 @@ export const useUsers = create<UsersState>()(
         return u;
       },
       setStatus: (id, status) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, status } : u)) })),
-      setRole: (id, role) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, role } : u)) })),
+      setRole: (id, role, permissions) => 
+        set((s) => ({ 
+          users: s.users.map((u) => (u.id === id ? { 
+            ...u, 
+            role, 
+            permissions: permissions || (role === "Super Admin" ? superAdminPermissions : (role === "Customer" ? undefined : defaultPermissions)) 
+          } : u)) 
+        })),
       update: (id, patch) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
+      logActivity: (userId, action, target) => {
+        set((s) => ({
+          users: s.users.map((u) => u.id === userId ? {
+            ...u,
+            activities: [
+              { id: crypto.randomUUID(), action, target, timestamp: new Date().toISOString() },
+              ...(u.activities || [])
+            ].slice(0, 50) // Keep last 50 activities
+          } : u)
+        }));
+      },
       remove: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
       exists: (email) => get().users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase()),
       setPasswordByEmail: (email, password) => {
@@ -331,7 +691,16 @@ export const useUsers = create<UsersState>()(
         return found;
       },
     }),
-    { name: "yaa-users-v1" },
+    {
+      name: "yaa-users-v2", // Bump version for schema change
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHasHydrated(true);
+          const hasAdmin = state.users.some((u) => u.email === seededAdmin.email);
+          if (!hasAdmin) state.users.push(seededAdmin);
+        }
+      },
+    },
   ),
 );
 
@@ -393,4 +762,20 @@ export const useWishlist = create<WishlistState>()(
     }),
     { name: "yaa-wishlist-v1" },
   ),
+);
+
+// =================== SYSTEM SETTINGS (Maintenance Mode, etc.) ===================
+type SettingsState = {
+  maintenanceMode: boolean;
+  setMaintenanceMode: (enabled: boolean) => void;
+};
+
+export const useSettings = create<SettingsState>()(
+  persist(
+    (set) => ({
+      maintenanceMode: false,
+      setMaintenanceMode: (maintenanceMode) => set({ maintenanceMode }),
+    }),
+    { name: "yaa-settings-v1" }
+  )
 );

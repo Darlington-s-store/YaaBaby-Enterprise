@@ -11,7 +11,11 @@ import { useAuth } from "@/store/useCart";
 import { useOtp } from "@/store/useStore";
 import { AuthShell } from "@/components/AuthShell";
 import { GoogleButton } from "@/components/GoogleButton";
-import { countries } from "@/data/countries";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { COUNTRY_DATA } from "@/data/countries";
+import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
 import authImg from "@/assets/auth-side.jpg";
 
 const Register = () => {
@@ -25,16 +29,21 @@ const Register = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [country, setCountry] = useState("GH");
+  const [countryId, setCountryId] = useState("ghana");
   const [region, setRegion] = useState("");
   const [referral, setReferral] = useState("");
   const [avatar, setAvatar] = useState<string>();
   const [terms, setTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  const regions = useMemo(() => countries.find((c) => c.code === country)?.regions ?? [], [country]);
+  const selectedCountry = useMemo(() => 
+    COUNTRY_DATA.find((c) => c.id === countryId) || COUNTRY_DATA[0], 
+  [countryId]);
 
-  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/account"} replace />;
+  const regions = selectedCountry.states;
+
+  if (user) return <Navigate to={user.role !== "Customer" ? "/admin" : "/account"} replace />;
 
   const onAvatar = (file?: File | null) => {
     if (!file) return;
@@ -50,7 +59,7 @@ const Register = () => {
     if (!terms) return toast.error("Please accept the Terms to continue");
     setSubmitting(true);
     const r = await signUp(name, email, password, {
-      phone, country, region, avatar, referralCode: referral || undefined,
+      phone, country: countryId, region, avatar, referralCode: referral || undefined,
     });
     setSubmitting(false);
     if (!r.ok) return toast.error(r.error ?? "Could not create account");
@@ -125,16 +134,67 @@ const Register = () => {
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <Label>Country</Label>
-              <Select value={country} onValueChange={(v) => { setCountry(v); setRegion(""); }}>
-                <SelectTrigger className="mt-1.5 h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>{countries.map((c) => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full mt-1.5 h-11 justify-between font-normal"
+                  >
+                    {selectedCountry ? (
+                      <span className="flex items-center gap-2">
+                        <span>{selectedCountry.name}</span>
+                      </span>
+                    ) : (
+                      "Select country..."
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-2xl overflow-hidden shadow-2xl border-primary/10">
+                  <Command>
+                    <CommandInput placeholder="Search country..." className="h-10" />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {COUNTRY_DATA.map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={c.name}
+                            onSelect={() => {
+                              setCountryId(c.id);
+                              setRegion("");
+                              setOpen(false);
+                            }}
+                            className="h-11 px-4 cursor-pointer"
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4 text-primary",
+                                countryId === c.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                              <span className="flex-1">{c.name}</span>
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{c.dialCode}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Region</Label>
-              <Select value={region} onValueChange={setRegion}>
-                <SelectTrigger className="mt-1.5 h-11"><SelectValue placeholder="Choose region" /></SelectTrigger>
-                <SelectContent>{regions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+              <Select value={region || undefined} onValueChange={setRegion}>
+                <SelectTrigger className="mt-1.5 h-11">
+                  <SelectValue placeholder="Choose region" />
+                </SelectTrigger>
+                <SelectContent>
+                  {regions.map((s) => (
+                    <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
           </div>

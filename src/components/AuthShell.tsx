@@ -38,9 +38,11 @@ export const AuthShell = ({ side, image, imageEyebrow, imageTitle, imageSubtitle
           <ArrowLeft className="size-4" /> Back to {side === "admin" ? "admin" : "store"}
         </Link>
         <Link to="/" className="lg:hidden font-display font-bold">YAA BABY</Link>
-        <Link to={side === "admin" ? "/login" : "/admin/login"} className="text-xs font-semibold text-primary hover:underline">
-          {side === "admin" ? "Customer login" : "Admin login →"}
-        </Link>
+        {side === "admin" && (
+          <Link to="/login" className="text-xs font-semibold text-primary hover:underline">
+            Customer login
+          </Link>
+        )}
       </header>
       <div className="flex-1 grid place-items-center px-6 py-10">
         <div className="w-full max-w-md">{children}</div>

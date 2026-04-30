@@ -1,5 +1,9 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, ShoppingBag, Users, Tag, BarChart3, Boxes, MessageSquare, ShieldCheck } from "lucide-react";
+import { 
+  LayoutDashboard, Package, ShoppingBag, Users, Tag, 
+  BarChart3, Boxes, MessageSquare, ShieldCheck, 
+  Plus, User as UserIcon, Settings, PlusCircle, UserPlus, CreditCard, Truck 
+} from "lucide-react";
 import { useAuth } from "@/store/useCart";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useOrders, useReviews } from "@/store/useStore";
@@ -13,7 +17,9 @@ const AdminLayout = () => {
   const pendingReviews = allReviews.filter((r) => r.status === "pending").length;
 
   if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
-  if (user.role !== "admin") return <Navigate to="/admin/login" replace />;
+  if (user.role === "Customer") return <Navigate to="/" replace />;
+
+  const canManageAdmins = user.role === "Super Admin" || user.permissions?.can_manage_users;
 
   const nav = [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
@@ -23,8 +29,12 @@ const AdminLayout = () => {
     { to: "/admin/categories", label: "Categories", icon: Tag },
     { to: "/admin/reviews", label: "Reviews", icon: MessageSquare, badge: pendingReviews || undefined },
     { to: "/admin/customers", label: "Customers", icon: Users },
-    { to: "/admin/users", label: "Users & Roles", icon: ShieldCheck },
+    { to: "/admin/payments", label: "Payments", icon: CreditCard },
+    { to: "/admin/shipping", label: "Shipping", icon: Truck },
+    ...(canManageAdmins ? [{ to: "/admin/management", label: "Admin Management", icon: ShieldCheck }] : []),
     { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    { to: "/admin/profile", label: "Profile", icon: UserIcon },
+    { to: "/admin/settings", label: "Settings", icon: Settings },
   ];
 
   return (

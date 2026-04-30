@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Plus, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUsers } from "@/store/useStore";
+import { useUsers, type AdminRole } from "@/store/useStore";
 import { useAuth } from "@/store/useCart";
 import { StatusPill } from "./Overview";
 import { toast } from "sonner";
@@ -18,10 +18,10 @@ const Users = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setNewRole] = useState<"customer" | "admin">("admin");
+  const [role, setNewRole] = useState<AdminRole>("Admin");
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-display text-2xl font-bold">Users & roles</h2>
@@ -37,7 +37,7 @@ const Users = () => {
               e.preventDefault();
               const created = register({ name, email, password, role });
               if (!created) return toast.error("That email is already registered");
-              toast.success(`${role === "admin" ? "Admin" : "Customer"} created`);
+              toast.success(`${role !== "Customer" ? "Admin" : "Customer"} created`);
               setOpen(false); setName(""); setEmail(""); setPassword("");
             }}>
               <div><Label>Full name</Label><Input required value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -45,11 +45,11 @@ const Users = () => {
               <div><Label>Temporary password</Label><Input required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
               <div>
                 <Label>Role</Label>
-                <Select value={role} onValueChange={(v) => setNewRole(v as "customer" | "admin")}>
+                <Select value={role} onValueChange={(v) => setNewRole(v as AdminRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="customer">Customer</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="Customer">Customer</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -76,8 +76,8 @@ const Users = () => {
                 <tr key={u.id} className="border-t hover:bg-muted/30">
                   <td className="p-3">
                     <div className="flex gap-3 items-center">
-                      <div className={`size-10 rounded-full grid place-items-center text-primary-foreground font-bold ${u.role === "admin" ? "bg-emerald-gold" : "bg-primary"}`}>
-                        {u.role === "admin" ? <ShieldCheck className="size-4" /> : u.name[0]?.toUpperCase()}
+                      <div className={`size-10 rounded-full grid place-items-center text-primary-foreground font-bold ${u.role !== "Customer" ? "bg-emerald-gold" : "bg-primary"}`}>
+                        {u.role !== "Customer" ? <ShieldCheck className="size-4" /> : u.name[0]?.toUpperCase()}
                       </div>
                       <div>
                         <div className="font-semibold">{u.name} {u.id === me.id && <span className="text-xs text-muted-foreground">(you)</span>}</div>
@@ -86,11 +86,11 @@ const Users = () => {
                     </div>
                   </td>
                   <td className="p-3">
-                    <Select value={u.role} onValueChange={(v) => { setRole(u.id, v as "customer" | "admin"); toast.success("Role updated"); }} disabled={u.id === me.id}>
+                    <Select value={u.role} onValueChange={(v) => { setRole(u.id, v as AdminRole); toast.success("Role updated"); }} disabled={u.id === me.id}>
                       <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="customer">Customer</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="Customer">Customer</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </td>

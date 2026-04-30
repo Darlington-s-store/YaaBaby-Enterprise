@@ -13,7 +13,7 @@ const Profile = () => {
   const [email, setEmail] = useState(user.email);
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       <h2 className="font-display text-2xl font-bold">Admin profile</h2>
 
       <div className="bg-card border rounded-2xl p-6">

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { products as seedProducts, type Product } from "@/data/catalog";
+import { useNotifications } from "./useNotifications";
 
 export type AdminProduct = Product;
 
@@ -27,6 +28,17 @@ export const useProducts = create<ProductsState>()(
             slug: p.slug?.trim() ? slugify(p.slug) : slugify(p.name),
           };
           const exists = s.products.some((x) => x.id === safe.id);
+
+          // Check for low stock notification
+          if (safe.stock < 10) {
+            useNotifications.getState().addNotification({
+              type: "stock",
+              title: "Low Stock Alert ⚠️",
+              message: `${safe.name} is running low (${safe.stock} left).`,
+              link: `/admin/inventory?search=${safe.id}`,
+            });
+          }
+
           return {
             products: exists
               ? s.products.map((x) => (x.id === safe.id ? safe : x))

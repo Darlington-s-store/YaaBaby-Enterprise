@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "@/data/catalog";
-import { useUsers } from "@/store/useStore";
+import { useUsers, type AdminRole, type AdminPermissions } from "@/store/useStore";
 
 export type CartItem = {
   productId: string;
@@ -64,7 +64,8 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "customer" | "admin";
+  role: AdminRole;
+  permissions?: AdminPermissions;
   avatar?: string;
 };
 
@@ -101,26 +102,26 @@ export const useAuth = create<AuthState>()(
           return { ok: false, error: "An account with this email already exists. Please sign in." };
         }
         const created = useUsers.getState().register({
-          name, email, password, role: "customer", ...extras,
+          name, email, password, role: "Customer", ...extras,
         });
         if (!created) return { ok: false, error: "Could not create account." };
-        set({ user: { id: created.id, email: created.email, name: created.name, role: created.role, avatar: created.avatar } });
+        set({ user: { id: created.id, email: created.email, name: created.name, role: created.role, avatar: created.avatar, permissions: created.permissions } });
         return { ok: true };
       },
       signIn: async (email, password, remember = true) => {
         const u = useUsers.getState().authenticate(email, password);
         if (!u) return { ok: false, error: "Invalid email or password. Don't have an account? Sign up first." };
-        if (u.role === "admin") {
+        if (u.role !== "Customer") {
           return { ok: false, error: "Admin accounts must sign in via the admin login page." };
         }
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar }, remember });
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar, permissions: u.permissions }, remember });
         return { ok: true };
       },
       adminSignIn: async (email, password) => {
         const u = useUsers.getState().authenticate(email, password);
         if (!u) return { ok: false, error: "Invalid admin credentials." };
-        if (u.role !== "admin") return { ok: false, error: "This account does not have admin access." };
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar } });
+        if (u.role === "Customer") return { ok: false, error: "This account does not have admin access." };
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar, permissions: u.permissions } });
         return { ok: true };
       },
       googleSignIn: async (mockEmail) => {
@@ -128,10 +129,10 @@ export const useAuth = create<AuthState>()(
         const email = (mockEmail ?? "google.user@gmail.com").trim().toLowerCase();
         const name = email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         const existing = useUsers.getState().users.find((u) => u.email.toLowerCase() === email);
-        const u = existing ?? useUsers.getState().register({ name, email, password: "google-oauth-mock", role: "customer" });
+        const u = existing ?? useUsers.getState().register({ name, email, password: "google-oauth-mock", role: "Customer" });
         if (!u) return { ok: false, error: "Could not sign in with Google." };
-        if (u.role === "admin") return { ok: false, error: "Admin accounts must use the admin login page." };
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar } });
+        if (u.role !== "Customer") return { ok: false, error: "Admin accounts must use the admin login page." };
+        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar, permissions: u.permissions } });
         return { ok: true };
       },
       signOut: () => set({ user: null }),
