@@ -369,7 +369,7 @@ export const useTransactions = create<TransactionsState>()(
         transactions: s.transactions.filter((t) => t.id !== id)
       }))
     }),
-    { name: "yaa-transactions-v1" }
+    { name: "yaa-transactions-v2" }
   )
 );
 
