@@ -355,41 +355,7 @@ type TransactionsState = {
 export const useTransactions = create<TransactionsState>()(
   persist(
     (set) => ({
-      transactions: [
-        {
-          id: "tx-1",
-          orderId: "YBE-K8J2S9",
-          reference: "pstk_902183021",
-          customerName: "Ama Serwaa",
-          customerEmail: "ama@example.com",
-          amount: 450.00,
-          channel: "Paystack",
-          status: "success",
-          date: new Date().toISOString(),
-        },
-        {
-          id: "tx-2",
-          orderId: "YBE-L0P4M2",
-          reference: "momo_8829102",
-          customerName: "Kofi Arhin",
-          customerEmail: "kofi@example.com",
-          amount: 120.50,
-          channel: "MoMo",
-          status: "success",
-          date: new Date(Date.now() - 86400000).toISOString(),
-        },
-        {
-          id: "tx-3",
-          orderId: "YBE-H7G5F3",
-          reference: "offline_bnk_992",
-          customerName: "Sarah Mensah",
-          customerEmail: "sarah@gmail.com",
-          amount: 2100.00,
-          channel: "Bank Transfer",
-          status: "pending",
-          date: new Date(Date.now() - 172800000).toISOString(),
-        }
-      ],
+      transactions: [],
       add: (t) => set((s) => ({
         transactions: [
           { ...t, id: crypto.randomUUID(), date: new Date().toISOString() },
