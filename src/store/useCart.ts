@@ -193,17 +193,26 @@ export const useAuth = create<AuthState>()(
       initialize: async () => {
         // Handle Google Redirect Result
         try {
+          console.log("🔄 Checking for Google redirect result...");
           const result = await getRedirectResult(auth);
           if (result) {
+            console.log("✅ Google redirect detected for:", result.user.email);
             const idToken = await result.user.getIdToken();
+            
+            console.log("📡 Sending token to backend...");
             const res = await api.post('/auth/google/firebase', { idToken });
             const { accessToken, user } = res.data;
+            
+            console.log("🎉 Backend login successful!");
             localStorage.setItem('accessToken', accessToken);
             const normalizedRole = user.role?.toLowerCase() || 'customer';
             set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
           }
-        } catch (err) {
-          console.error("Redirect Auth Error:", err);
+        } catch (err: any) {
+          console.error("❌ Redirect Auth Error:", err);
+          if (err.code === 'auth/unauthorized-domain') {
+            console.error("👉 FIX: You must add this domain to Firebase Console > Authentication > Settings > Authorized Domains");
+          }
         }
 
         const token = localStorage.getItem('accessToken');
