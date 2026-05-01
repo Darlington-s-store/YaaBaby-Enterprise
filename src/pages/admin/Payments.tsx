@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   CreditCard, ExternalLink, Search, Filter, 
   Download, Plus, CheckCircle2, XCircle, 
@@ -60,7 +60,12 @@ const SummaryCard = ({ title, value, icon: Icon, color }: { title: string, value
 );
 
 const Payments = () => {
-  const { transactions, add, setStatus } = useTransactions();
+  const { transactions, fetch, add, setStatus } = useTransactions();
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
   const [search, setSearch] = useState("");
   const [filterChannel, setFilterChannel] = useState<string>("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -123,6 +128,18 @@ const Payments = () => {
           <p className="text-sm text-muted-foreground mt-1">Monitor revenue, reconcile payments, and manage offline records.</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            className="rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => {
+              if (confirm("Are you sure you want to clear all transaction records? This cannot be undone.")) {
+                useTransactions.getState().clearAll();
+                toast.success("All transaction records cleared");
+              }
+            }}
+          >
+            <XCircle className="size-4 mr-2" /> Clear All
+          </Button>
           <Button variant="outline" className="rounded-full shadow-sm bg-white" asChild>
             <a href="https://dashboard.paystack.com" target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-4 mr-2" /> Paystack Dashboard

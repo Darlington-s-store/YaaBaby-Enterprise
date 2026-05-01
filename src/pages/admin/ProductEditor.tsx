@@ -70,6 +70,7 @@ const ProductEditor = () => {
   const remove = useProducts((s) => s.remove);
 
   const [form, setForm] = useState<FormState>(empty);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Hydrate the form when the product loads (or once for new)
@@ -79,7 +80,7 @@ const ProductEditor = () => {
     } else if (existing) {
       setForm(fromProduct(existing));
     }
-  }, [isNew, existing?.id]);
+  }, [isNew, existing]);
 
   // Keep slug in sync with name when slug field hasn't been hand-edited
   const slugAuto = useMemo(() => slugify(form.name), [form.name]);
@@ -98,18 +99,24 @@ const ProductEditor = () => {
 
   const onUpload = (files?: FileList | null) => {
     if (!files?.length) return;
-    const readers = Array.from(files).slice(0, 6 - form.images.length).map(
+    
+    const newFiles = Array.from(files).filter(f => f.size <= 5 * 1024 * 1024);
+    if (newFiles.length < files.length) toast.warning("Some files were skipped (over 5MB)");
+
+    setSelectedFiles(prev => [...prev, ...newFiles].slice(0, 6));
+
+    const readers = newFiles.map(
       (f) =>
         new Promise<string>((resolve, reject) => {
-          if (f.size > 3 * 1024 * 1024) return reject(new Error(`${f.name} is over 3MB`));
           const r = new FileReader();
           r.onload = () => (typeof r.result === "string" ? resolve(r.result) : reject(new Error("read failed")));
           r.onerror = () => reject(r.error ?? new Error("read failed"));
           r.readAsDataURL(f);
         }),
     );
+    
     Promise.all(readers)
-      .then((dataUrls) => set("images", [...form.images, ...dataUrls]))
+      .then((dataUrls) => set("images", [...form.images, ...dataUrls].slice(0, 6)))
       .catch((err: Error) => toast.error(err.message));
   };
 
@@ -123,40 +130,47 @@ const ProductEditor = () => {
     if (!Number.isInteger(stock) || stock < 0) return "Stock must be a non-negative whole number";
     if (form.compareAt && Number(form.compareAt) <= price) return "Compare-at price should be higher than price";
     if (!form.description.trim()) return "Description is required";
-    if (form.images.length === 0) return "Add at least one image";
+    if (form.images.length === 0 && selectedFiles.length === 0) return "Add at least one image";
     return null;
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const error = validate();
     if (error) return toast.error(error);
     setSaving(true);
-    const finalSlug = (form.slug || slugAuto).trim();
-    const product: Product = {
-      id: form.id,
-      name: form.name.trim(),
-      slug: finalSlug,
-      brand: form.brand.trim(),
-      category: form.category,
-      price: Number(form.price),
-      compareAt: form.compareAt ? Number(form.compareAt) : undefined,
-      rating: Number(form.rating) || 0,
-      reviews: Number(form.reviews) || 0,
-      image: form.images[0],
-      images: form.images,
-      badges: splitCsv(form.badges),
-      stock: Number(form.stock),
-      description: form.description.trim(),
-      colors: splitCsv(form.colors),
-      sizes: splitCsv(form.sizes),
-    };
-    upsert(product);
-    setTimeout(() => {
-      setSaving(false);
+    
+    try {
+      const finalSlug = (form.slug || slugAuto).trim();
+      
+      // Use FormData for multi-part upload (images)
+      const formData = new FormData();
+      formData.append('id', form.id);
+      formData.append('name', form.name.trim());
+      formData.append('slug', finalSlug);
+      formData.append('brand', form.brand.trim());
+      formData.append('category', form.category);
+      formData.append('price', form.price);
+      formData.append('compareAt', form.compareAt || '');
+      formData.append('stock', form.stock);
+      formData.append('description', form.description.trim());
+      formData.append('badges', JSON.stringify(splitCsv(form.badges)));
+      formData.append('colors', JSON.stringify(splitCsv(form.colors)));
+      formData.append('sizes', JSON.stringify(splitCsv(form.sizes)));
+
+      selectedFiles.forEach((file) => {
+        formData.append('images', file);
+      });
+
+      await upsert(formData);
+      
       toast.success(isNew ? "Product created" : "Product updated");
       navigate("/admin/products");
-    }, 250);
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Failed to save product");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onDelete = () => {

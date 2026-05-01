@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { Search, Mail, Users as UsersIcon, Plus, MoreHorizontal, UserMinus, UserCheck, Trash2, Edit } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,12 @@ const Customers = () => {
   const rawUsers = useUsers((s) => s.users);
   const allUsers = useMemo(() => rawUsers.filter((u) => u.role === "Customer"), [rawUsers]);
   const orders = useOrders((s) => s.orders);
-  const { register, setStatus, remove, update } = useUsers();
+  const { register, setStatus, remove, update, fetchUsers } = useUsers();
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [name, setName] = useState("");
@@ -52,9 +57,9 @@ const Customers = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Create customer</DialogTitle></DialogHeader>
-            <form className="space-y-4" onSubmit={(e) => {
+            <form className="space-y-4" onSubmit={async (e) => {
               e.preventDefault();
-              const created = register({ name, email, password, role: "Customer" });
+              const created = await register({ name, email, password, role: "Customer" });
               if (!created) return toast.error("That email is already registered");
               toast.success("Customer account created");
               setOpen(false); setName(""); setEmail(""); setPassword("");

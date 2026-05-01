@@ -15,13 +15,15 @@ export type Product = {
   category: string;
   price: number;
   compareAt?: number;
-  rating: number;
-  reviews: number;
   image: string;
   images: string[];
-  badges?: string[];
+  rating: number;
+  reviews: number;
   stock: number;
   description: string;
+  badges?: string[];
+  createdAt?: string;
+  updatedAt?: string;
   colors?: string[];
   sizes?: string[];
 };
@@ -105,14 +107,10 @@ export const heroSlides = [
 ];
 
 export const stats = [
-  { value: "50K+", label: "Happy customers" },
-  { value: "10K+", label: "Products curated" },
-  { value: "4.9★", label: "Average rating" },
+  { value: "500+", label: "Happy customers" },
+  { value: "1K+", label: "Products curated" },
+  { value: "4.8★", label: "Average rating" },
   { value: "24h", label: "Fast delivery" },
 ];
 
-export const testimonials = [
-  { name: "Ama Boateng", role: "Accra", quote: "Genuine products, thoughtful packaging, and the fastest delivery I've experienced in Ghana. YAA BABY is now my default.", rating: 5 },
-  { name: "Kwesi Mensah", role: "Kumasi", quote: "I bought my Atlas Pro through their store and the visual search helped me match an accessory I saw on Instagram. Brilliant.", rating: 5 },
-  { name: "Adwoa Asante", role: "Takoradi", quote: "The Maison Yaa candle is divine. Real reviews, real photos — exactly what I received.", rating: 5 },
-];
+export const testimonials: { name: string; role: string; quote: string; rating: number }[] = [];

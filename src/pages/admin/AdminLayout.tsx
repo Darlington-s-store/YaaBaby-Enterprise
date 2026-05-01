@@ -7,17 +7,29 @@ import {
 import { useAuth } from "@/store/useCart";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useOrders, useReviews } from "@/store/useStore";
+import { useEffect } from "react";
 
 const AdminLayout = () => {
   const user = useAuth((s) => s.user);
   const location = useLocation();
-  const allOrders = useOrders((s) => s.orders);
-  const allReviews = useReviews((s) => s.reviews);
+  const { orders: allOrders, fetchAllOrders } = useOrders();
+  const { reviews: allReviews, fetchReviews } = useReviews();
+
+  useEffect(() => {
+    if (user && user.role !== "Customer") {
+      fetchAllOrders();
+      fetchReviews();
+    }
+  }, [user, fetchAllOrders, fetchReviews]);
   const pendingOrders = allOrders.filter((o) => o.status === "Pending").length;
   const pendingReviews = allReviews.filter((r) => r.status === "pending").length;
 
   if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
-  if (user.role === "Customer") return <Navigate to="/" replace />;
+  
+  const userRole = user.role?.toLowerCase();
+  const isAdmin = ["admin", "super_admin", "manager"].includes(userRole);
+
+  if (!isAdmin) return <Navigate to="/account" replace />;
 
   const canManageAdmins = user.role === "Super Admin" || user.permissions?.can_manage_users;
 

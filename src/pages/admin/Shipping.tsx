@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Truck, Globe, MapPin, Plus, 
   Settings2, Trash2, Edit3, Info,
@@ -22,7 +22,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const Shipping = () => {
-  const { zones, addZone, updateZone, removeZone, addMethod, removeMethod } = useShipping();
+  const { zones, fetchZones, addZone, updateZone, removeZone, addMethod, removeMethod } = useShipping();
+
+  useEffect(() => {
+    fetchZones();
+  }, [fetchZones]);
+
   const { partners, add: addPartner, update: updatePartner, remove: removePartner } = useDeliveryPartners();
 
   const [isZoneOpen, setIsZoneOpen] = useState(false);

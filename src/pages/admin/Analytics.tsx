@@ -1,19 +1,32 @@
 import { motion } from "framer-motion";
-import { TrendingUp, BarChart3, ShoppingBag, Users, Calendar } from "lucide-react";
+import { TrendingUp, BarChart3, ShoppingBag, Users, Calendar, Camera, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useOrders, useUsers } from "@/store/useStore";
 import { formatGHS } from "@/lib/format";
 import { useProducts } from "@/store/useProducts";
+import { useVisualSearch } from "@/store/useStore";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, PieChart, Pie
 } from "recharts";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { subDays, format, startOfDay, isSameDay } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const Analytics = () => {
-  const products = useProducts((s) => s.products);
-  const orders = useOrders((s) => s.orders);
-  const customers = useUsers((s) => s.users).filter((u) => u.role === "Customer");
+  const { products, fetchProducts } = useProducts();
+  const { orders, fetchAllOrders } = useOrders();
+  const users = useUsers((s) => s.users);
+
+  const { history, fetchHistory, updateRecord } = useVisualSearch();
+  
+  useEffect(() => {
+    fetchProducts();
+    fetchAllOrders();
+    fetchHistory();
+  }, [fetchProducts, fetchAllOrders, fetchHistory]);
+
+  const customers = users.filter((u) => u.role === "Customer");
   const aov = orders.length ? orders.reduce((s, o) => s + o.total, 0) / orders.length : 0;
 
   // Generate chart data from last 7 days
@@ -193,6 +206,91 @@ const Analytics = () => {
               </ResponsiveContainer>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Visual Search Section */}
+      <div className="bg-card border rounded-3xl p-8 shadow-sm-elegant overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <Camera className="size-32" />
+        </div>
+        
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h3 className="font-display text-xl font-bold flex items-center gap-2">
+              Visual Search Insights
+              <Sparkles className="size-5 text-accent animate-pulse" />
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">Real-time analysis of customer image-based discovery patterns.</p>
+          </div>
+          <Button variant="outline" className="rounded-full" onClick={() => fetchHistory()}>
+            Refresh Data
+          </Button>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {history.length > 0 ? (
+            history.slice(0, 4).map((item, i) => (
+              <motion.div 
+                key={item.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.1 }}
+                className={cn(
+                  "group relative rounded-2xl overflow-hidden bg-muted border transition-all",
+                  item.isRequest ? "border-accent ring-2 ring-accent/20 shadow-lg shadow-accent/10" : "border-border/50"
+                )}
+              >
+                <img 
+                  src={item.imageUrl} 
+                  alt="" 
+                  className="w-full aspect-[4/5] object-cover transition-transform duration-500 group-hover:scale-110" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform">
+                  {item.isRequest && (
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                      <div className="bg-accent text-accent-foreground text-[10px] font-black px-2 py-1 rounded-md shadow-xl animate-bounce">
+                        PRIORITY REQUEST
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="h-7 px-3 text-[10px] rounded-full bg-white text-primary hover:bg-white/90 font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateRecord(item.id, { isRequest: false });
+                        }}
+                      >
+                        Mark Handled
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {item.detectedTags.map(tag => (
+                      <span key={tag} className="text-[8px] font-bold uppercase tracking-widest bg-white/20 backdrop-blur-md text-white px-2 py-0.5 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-white/60 font-medium">
+                      {format(new Date(item.createdAt), 'MMM d, HH:mm')}
+                    </span>
+                    <span className={cn(
+                      "text-[10px] font-black uppercase",
+                      item.resultsCount > 0 ? "text-accent" : "text-destructive"
+                    )}>
+                      {item.resultsCount} Matches
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl">
+              <Camera className="size-12 mx-auto mb-4 text-muted-foreground/30" />
+              <p className="text-muted-foreground">No visual searches recorded yet.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

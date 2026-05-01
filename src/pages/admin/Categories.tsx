@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const Categories = () => {
-  const { categories, addCategory, updateCategory, removeCategory, addSubcategory, removeSubcategory, addBrand, removeBrand, resetToDefaults } = useTaxonomy();
+  const { categories, fetchCategories, addCategory, updateCategory, removeCategory, addSubcategory, removeSubcategory, addBrand, removeBrand, resetToDefaults } = useTaxonomy();
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
   const [openCat, setOpenCat] = useState<string | null>(categories[0]?.id ?? null);
   const [newCatOpen, setNewCatOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -65,7 +70,7 @@ const Categories = () => {
                     <div className="size-10 rounded-xl bg-emerald-gold grid place-items-center text-xl shrink-0">{c.icon}</div>
                     <div className="min-w-0">
                       <div className="font-display text-lg font-bold truncate">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.subcategories.length} subcategor{c.subcategories.length === 1 ? "y" : "ies"} · {c.subcategories.reduce((s, x) => s + x.brands.length, 0)} brands</div>
+                      <div className="text-xs text-muted-foreground">{(c.subcategories || []).length} subcategor{(c.subcategories || []).length === 1 ? "y" : "ies"} · {(c.subcategories || []).reduce((s, x) => s + (x.brands || []).length, 0)} brands</div>
                     </div>
                   </button>
                   <div className="flex gap-1">
@@ -82,7 +87,7 @@ const Categories = () => {
                       <Button type="submit" className="rounded-full"><Plus className="size-4 mr-1" />Add</Button>
                     </form>
 
-                    {c.subcategories.length === 0 ? (
+                    {(!c.subcategories || c.subcategories.length === 0) ? (
                       <p className="text-sm text-muted-foreground text-center py-6">No subcategories yet.</p>
                     ) : (
                       <div className="grid sm:grid-cols-2 gap-3">
@@ -93,8 +98,8 @@ const Categories = () => {
                               <Button size="icon" variant="ghost" className="size-7 text-destructive hover:text-destructive" onClick={() => { if (confirm(`Delete "${sc.name}"?`)) { removeSubcategory(c.id, sc.id); toast.success("Subcategory removed"); } }}><Trash2 className="size-3.5" /></Button>
                             </div>
                             <div className="flex flex-wrap gap-1.5 mb-3">
-                              {sc.brands.length === 0 && <span className="text-xs text-muted-foreground">No brands</span>}
-                              {sc.brands.map((b) => (
+                              {(sc.brands || []).length === 0 && <span className="text-xs text-muted-foreground">No brands</span>}
+                              {(sc.brands || []).map((b) => (
                                 <span key={b.id} className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">
                                   {b.name}
                                   <button onClick={() => removeBrand(c.id, sc.id, b.id)} className="hover:text-destructive"><X className="size-3" /></button>

@@ -20,41 +20,37 @@ export const StatusPill = ({ status }: { status: string }) => {
   return <span className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full ${cls}`}>{status}</span>;
 };
 
-const Overview = () => {
-  const products = useProducts((s) => s.products);
-  const orders = useOrders((s) => s.orders);
-  const allUsers = useUsers((s) => s.users);
-  const allReviews = useReviews((s) => s.reviews);
-  const users = allUsers.filter((u) => u.role === "Customer");
-  const pendingReviews = allReviews.filter((r) => r.status === "pending").length;
+import { useDashboard } from "@/store/useDashboard";
+import { useEffect } from "react";
 
-  const totalRev = orders.reduce((s, o) => s + (o.status !== "Cancelled" && o.status !== "Refunded" ? o.total : 0), 0);
+const Overview = () => {
+  const { summary, dailyRevenue, recentOrders, categoryDistribution, fetchDashboardStats, loading } = useDashboard();
+  
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [fetchDashboardStats]);
 
   const kpis = [
-    { label: "Revenue", value: formatGHS(totalRev), delta: "Live", icon: TrendingUp },
-    { label: "Orders", value: orders.length.toString(), delta: orders.length ? "+0%" : "—", icon: ShoppingBag },
-    { label: "Customers", value: users.length.toString(), delta: users.length ? "active" : "—", icon: Users },
-    { label: "Products", value: products.length.toString(), delta: "live", icon: Package },
+    { label: "Revenue", value: formatGHS(summary.totalRevenue), delta: "Live", icon: TrendingUp },
+    { label: "Orders", value: summary.totalOrders.toString(), delta: "+", icon: ShoppingBag },
+    { label: "Customers", value: summary.totalCustomers.toString(), delta: "active", icon: Users },
+    { label: "Products", value: summary.totalProducts.toString(), delta: "live", icon: Package },
   ];
 
   const chartData = useMemo(() => {
-    return Array.from({ length: 7 }).map((_, i) => {
-      const dateObj = subDays(new Date(), 6 - i);
-      const dayOrders = orders.filter(o => isSameDay(new Date(o.date), dateObj));
-      return {
-        name: format(dateObj, "EEE"),
-        revenue: dayOrders.reduce((s, o) => s + o.total, 0),
-      };
-    });
-  }, [orders]);
+    return dailyRevenue.map(d => ({
+      name: format(new Date(d.date), "EEE"),
+      revenue: parseFloat(d.total)
+    }));
+  }, [dailyRevenue]);
 
   const catData = useMemo(() => {
-    const counts = products.reduce((acc, p) => {
-      acc[p.category] = (acc[p.category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [products]);
+    return categoryDistribution?.length > 0 
+      ? categoryDistribution 
+      : [{ name: 'Empty', value: 1 }];
+  }, [categoryDistribution]);
+
+  const pendingReviewsCount = summary.pendingReviewsCount || 0;
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', '#10b981', '#f59e0b'];
 
@@ -120,7 +116,7 @@ const Overview = () => {
               <h2 className="font-display text-lg font-bold">Recent orders</h2>
               <Link to="/admin/orders" className="text-xs text-primary font-semibold flex items-center gap-1">View all <ArrowRight className="size-3" /></Link>
             </div>
-            {orders.length === 0 ? (
+            {recentOrders.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground italic">Nothing to see here yet.</div>
             ) : (
               <div className="overflow-x-auto">
@@ -129,10 +125,10 @@ const Overview = () => {
                     <tr><th className="text-left pb-3">Order</th><th className="text-left pb-3">Customer</th><th className="text-left pb-3">Status</th><th className="text-right pb-3">Total</th></tr>
                   </thead>
                   <tbody>
-                    {orders.slice(0, 5).map((o) => (
+                    {recentOrders.map((o) => (
                       <tr key={o.id} className="border-t hover:bg-muted/30 transition-colors group">
                         <td className="py-3.5 font-bold"><Link to={`/admin/orders/${o.id}`} className="group-hover:text-primary">{o.id}</Link></td>
-                        <td className="py-3.5 text-muted-foreground">{o.customer.name}</td>
+                        <td className="py-3.5 text-muted-foreground">{o.customerName || 'Guest'}</td>
                         <td className="py-3.5"><StatusPill status={o.status} /></td>
                         <td className="py-3.5 text-right font-black">{formatGHS(o.total)}</td>
                       </tr>
@@ -189,7 +185,7 @@ const Overview = () => {
                 <div className="size-10 rounded-xl bg-accent/10 grid place-items-center"><Sparkles className="size-5 text-accent" /></div>
                 <div>
                   <div className="text-sm font-bold">Pending Reviews</div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold">{pendingReviews} to check</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold">{pendingReviewsCount} to check</div>
                 </div>
               </div>
               <ArrowRight className="size-4 text-muted-foreground" />
@@ -205,32 +201,6 @@ const Overview = () => {
               </div>
               <ArrowRight className="size-4 text-muted-foreground" />
             </Link>
-          </div>
-
-          <div className="bg-card border rounded-3xl p-6 shadow-sm-elegant relative overflow-hidden group">
-            <div className="absolute top-0 right-0 size-24 bg-primary/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110" />
-            <h3 className="font-display text-sm font-bold mb-4 uppercase tracking-wider text-muted-foreground">Alert Simulator</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase justify-start gap-2 rounded-xl" onClick={() => useNotifications.getState().addNotification({ type: "sale", title: "Flash Sale Started! 🔥", message: "Our weekend blowout is live. Up to 40% off!", link: "/shop?sale=true" })}>
-                <span>🔥</span> Flash Sale
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase justify-start gap-2 rounded-xl" onClick={() => useNotifications.getState().addNotification({ type: "stock", title: "Back in Stock! 📦", message: "The Nova Wireless Headphones are now available.", link: "/product/nova-wireless-headphones" })}>
-                <span>📦</span> Restock
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase justify-start gap-2 rounded-xl" onClick={() => useNotifications.getState().addNotification({ type: "promo", title: "Promo Unlocked! 🎁", message: "Use code WELCOME20 for 20% off your next order.", link: "/shop" })}>
-                <span>🎁</span> Promo
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase justify-start gap-2 rounded-xl" onClick={() => useNotifications.getState().addNotification({ type: "loyalty", title: "Tier Upgrade! 🏆", message: "Congratulations! You've reached Gold Status.", link: "/account/loyalty" })}>
-                <span>🏆</span> Loyalty
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase justify-start gap-2 rounded-xl" onClick={() => useNotifications.getState().addNotification({ type: "search", title: "Search Ready! 🔍", message: "Your visual search results are processed.", link: "/shop?search_id=123" })}>
-                <span>🔍</span> Search
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase justify-start gap-2 rounded-xl" onClick={() => useNotifications.getState().addNotification({ type: "admin_alert", title: "Payment Failed 🚨", message: "Order #YBE-721A payment was declined.", link: "/admin/orders/YBE-721A" })}>
-                <span>🚨</span> Payment Fail
-              </Button>
-            </div>
-            <p className="text-[9px] text-muted-foreground mt-4 font-medium uppercase tracking-tight italic">* Use these to test the Notification Center & Toasts</p>
           </div>
         </div>
       </div>

@@ -3,85 +3,155 @@ import { persist } from "zustand/middleware";
 import type { Category, Subcategory, Brand } from "@/data/taxonomy";
 import { defaultCategories } from "@/data/taxonomy";
 import { useNotifications } from "./useNotifications";
+import api from "@/services/api";
 
 // =================== TAXONOMY (Admin managed) ===================
 type TaxonomyState = {
   categories: Category[];
-  addCategory: (name: string, icon: string) => void;
-  updateCategory: (id: string, patch: Partial<Pick<Category, "name" | "icon">>) => void;
-  removeCategory: (id: string) => void;
-  addSubcategory: (catId: string, name: string) => void;
-  updateSubcategory: (catId: string, subId: string, name: string) => void;
-  removeSubcategory: (catId: string, subId: string) => void;
-  addBrand: (catId: string, subId: string, name: string) => void;
-  removeBrand: (catId: string, subId: string, brandId: string) => void;
-  resetToDefaults: () => void;
+  loading: boolean;
+  fetchCategories: () => Promise<void>;
+  addCategory: (name: string, icon: string) => Promise<void>;
+  updateCategory: (id: string, patch: Partial<Pick<Category, "name" | "icon">>) => Promise<void>;
+  removeCategory: (id: string) => Promise<void>;
+  addSubcategory: (parentId: string, name: string) => Promise<void>;
+  removeSubcategory: (parentId: string, id: string) => Promise<void>;
+  addBrand: (categoryId: string, subcategoryId: string, name: string) => Promise<void>;
+  removeBrand: (categoryId: string, subcategoryId: string, id: string) => Promise<void>;
+  resetToDefaults: () => Promise<void>;
 };
 
 const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-export const useTaxonomy = create<TaxonomyState>()(
-  persist(
-    (set) => ({
-      categories: defaultCategories,
-      addCategory: (name, icon) =>
-        set((s) => ({
-          categories: [...s.categories, { id: slug(name) || crypto.randomUUID(), name, icon: icon || "🛍️", subcategories: [] }],
-        })),
-      updateCategory: (id, patch) =>
-        set((s) => ({ categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
-      removeCategory: (id) => set((s) => ({ categories: s.categories.filter((c) => c.id !== id) })),
-      addSubcategory: (catId, name) =>
-        set((s) => ({
-          categories: s.categories.map((c) =>
-            c.id === catId ? { ...c, subcategories: [...c.subcategories, { id: slug(name) || crypto.randomUUID(), name, brands: [] }] } : c,
-          ),
-        })),
-      updateSubcategory: (catId, subId, name) =>
-        set((s) => ({
-          categories: s.categories.map((c) =>
-            c.id === catId
-              ? { ...c, subcategories: c.subcategories.map((sc) => (sc.id === subId ? { ...sc, name } : sc)) }
-              : c,
-          ),
-        })),
-      removeSubcategory: (catId, subId) =>
-        set((s) => ({
-          categories: s.categories.map((c) =>
-            c.id === catId ? { ...c, subcategories: c.subcategories.filter((sc) => sc.id !== subId) } : c,
-          ),
-        })),
-      addBrand: (catId, subId, name) =>
-        set((s) => ({
-          categories: s.categories.map((c) =>
-            c.id === catId
-              ? {
-                  ...c,
-                  subcategories: c.subcategories.map((sc) =>
-                    sc.id === subId ? { ...sc, brands: [...sc.brands, { id: slug(name) || crypto.randomUUID(), name }] } : sc,
-                  ),
-                }
-              : c,
-          ),
-        })),
-      removeBrand: (catId, subId, brandId) =>
-        set((s) => ({
-          categories: s.categories.map((c) =>
-            c.id === catId
-              ? {
-                  ...c,
-                  subcategories: c.subcategories.map((sc) =>
-                    sc.id === subId ? { ...sc, brands: sc.brands.filter((b) => b.id !== brandId) } : sc,
-                  ),
-                }
-              : c,
-          ),
-        })),
-      resetToDefaults: () => set({ categories: defaultCategories }),
-    }),
-    { name: "yaa-taxonomy-v1" },
-  ),
-);
+export const useTaxonomy = create<TaxonomyState>((set, get) => ({
+  categories: [],
+  loading: false,
+
+  fetchCategories: async () => {
+    set({ loading: true });
+    try {
+      const res = await api.get('/products/categories');
+      
+      interface BackendCategory {
+        id: string;
+        name: string;
+        icon: string;
+        children?: BackendCategory[];
+        brands?: { id: string; name: string }[];
+      }
+
+      // Map 'children' from backend to 'subcategories' for frontend
+      const mapped = res.data.map((c: BackendCategory) => ({
+        ...c,
+        subcategories: (c.children || []).map((sc: BackendCategory) => ({
+          ...sc,
+          brands: sc.brands || []
+        }))
+      }));
+      set({ categories: mapped, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  addCategory: async (name, icon) => {
+    set({ loading: true });
+    try {
+      await api.post('/products/categories', { name, icon });
+      await get().fetchCategories();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  updateCategory: async (id, patch) => {
+    set({ loading: true });
+    try {
+      await api.put(`/products/categories/${id}`, patch);
+      await get().fetchCategories();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  removeCategory: async (id) => {
+    set({ loading: true });
+    try {
+      await api.delete(`/products/categories/${id}`);
+      set((s) => ({
+        categories: s.categories.filter((c) => c.id !== id),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  addSubcategory: async (parentId, name) => {
+    set({ loading: true });
+    try {
+      await api.post('/products/categories', { name, parentId, icon: '📦' });
+      await get().fetchCategories();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  removeSubcategory: async (parentId, id) => {
+    await get().removeCategory(id);
+  },
+
+  addBrand: async (categoryId, subcategoryId, name) => {
+    set({ loading: true });
+    try {
+      const cat = get().categories.find(c => c.id === categoryId);
+      const sub = cat?.subcategories.find(s => s.id === subcategoryId);
+      if (!sub) {
+        console.error("Subcategory not found for brand addition:", subcategoryId);
+        set({ loading: false });
+        return;
+      }
+      
+      const newBrand = { id: slug(name), name };
+      const updatedBrands = [...(sub.brands || []), newBrand];
+      
+      console.log(`Adding brand "${name}" to subcategory ${subcategoryId}. New list:`, updatedBrands);
+      
+      await api.put(`/products/categories/${subcategoryId}`, { brands: updatedBrands });
+      await get().fetchCategories();
+    } catch (err) {
+      console.error("Failed to add brand:", err);
+      set({ loading: false });
+    }
+  },
+
+  removeBrand: async (categoryId, subcategoryId, brandId) => {
+    set({ loading: true });
+    try {
+      const cat = get().categories.find(c => c.id === categoryId);
+      const sub = cat?.subcategories.find(s => s.id === subcategoryId);
+      if (!sub) {
+        set({ loading: false });
+        return;
+      }
+      
+      const updatedBrands = (sub.brands || []).filter(b => b.id !== brandId);
+      
+      await api.put(`/products/categories/${subcategoryId}`, { brands: updatedBrands });
+      await get().fetchCategories();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  resetToDefaults: async () => {
+    set({ loading: true });
+    try {
+      await get().fetchCategories();
+    } catch (err) {
+      set({ loading: false });
+    }
+  }
+}));
 
 // =================== REVIEWS (User-submitted, admin-approved) ===================
 export type Review = {
@@ -105,39 +175,91 @@ export type Review = {
 
 type ReviewsState = {
   reviews: Review[];
-  add: (r: Omit<Review, "id" | "createdAt" | "status">) => void;
-  setStatus: (id: string, status: Review["status"]) => void;
-  reply: (id: string, text: string, adminName: string) => void;
-  toggleFlag: (id: string) => void;
-  remove: (id: string) => void;
+  loading: boolean;
+  fetchReviews: (productId?: string) => Promise<void>;
+  add: (r: Omit<Review, "id" | "createdAt" | "status">) => Promise<void>;
+  setStatus: (id: string, status: Review["status"]) => Promise<void>;
+  reply: (id: string, text: string) => Promise<void>;
+  toggleFlag: (id: string) => Promise<void>;
+  remove: (id: string) => Promise<void>;
 };
 
-export const useReviews = create<ReviewsState>()(
-  persist(
-    (set) => ({
-      reviews: [],
-      add: (r) =>
-        set((s) => ({
-          reviews: [
-            { ...r, id: crypto.randomUUID(), createdAt: new Date().toISOString(), status: "pending" },
-            ...s.reviews,
-          ],
-        })),
-      setStatus: (id, status) => set((s) => ({ reviews: s.reviews.map((r) => (r.id === id ? { ...r, status } : r)) })),
-      reply: (id, text, adminName) => set((s) => ({
-        reviews: s.reviews.map((r) => r.id === id ? { 
-          ...r, 
-          reply: { text, adminName, date: new Date().toISOString() } 
-        } : r)
-      })),
-      toggleFlag: (id) => set((s) => ({
+export const useReviews = create<ReviewsState>((set, get) => ({
+  reviews: [],
+  loading: false,
+
+  fetchReviews: async (productId) => {
+    set({ loading: true });
+    try {
+      const url = productId ? `/reviews/product/${productId}` : '/reviews/admin/pending';
+      const res = await api.get(url);
+      set({ reviews: res.data, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  add: async (r) => {
+    set({ loading: true });
+    try {
+      await api.post('/reviews', r);
+      // Don't refetch automatically, wait for moderation or show success
+      set({ loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  setStatus: async (id, status) => {
+    set({ loading: true });
+    try {
+      await api.put(`/reviews/moderate/${id}`, { status });
+      set((s) => ({
+        reviews: s.reviews.map((r) => (r.id === id ? { ...r, status } : r)),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  reply: async (id, text) => {
+    set({ loading: true });
+    try {
+      await api.post(`/reviews/reply/${id}`, { text });
+      await get().fetchReviews();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  toggleFlag: async (id) => {
+    set((s) => ({
+      reviews: s.reviews.map((r) => r.id === id ? { ...r, flagged: !r.flagged } : r)
+    }));
+    try {
+      await api.put(`/reviews/flag/${id}`);
+    } catch (err) {
+      // Revert on failure
+      set((s) => ({
         reviews: s.reviews.map((r) => r.id === id ? { ...r, flagged: !r.flagged } : r)
-      })),
-      remove: (id) => set((s) => ({ reviews: s.reviews.filter((r) => r.id !== id) })),
-    }),
-    { name: "yaa-reviews-v1" },
-  ),
-);
+      }));
+    }
+  },
+
+  remove: async (id) => {
+    set({ loading: true });
+    try {
+      await api.delete(`/reviews/${id}`);
+      set((s) => ({
+        reviews: s.reviews.filter((r) => r.id !== id),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+}));
 
 // =================== ADDRESSES (per user) ===================
 export type Address = {
@@ -212,82 +334,109 @@ export type Order = {
   trackingUrl?: string;
 };
 
-type OrdersState = {
-  orders: Order[];
-  place: (o: Omit<Order, "id" | "date" | "status">) => Order;
-  setStatus: (id: string, status: OrderStatus) => void;
-  assignPartner: (id: string, partnerId: string, trackingUrl?: string) => void;
-  remove: (id: string) => void;
+type CheckoutPayload = {
+  items: { productId: string; variantId?: string; quantity: number }[];
+  addressId: string;
+  paymentMethod: string;
+  shippingMethodId: string;
 };
 
-export const useOrders = create<OrdersState>()(
-  persist(
-    (set, get) => ({
-      orders: [],
-      place: (o) => {
-        const order: Order = {
-          ...o,
-          id: `YBE-${Date.now().toString(36).toUpperCase()}`,
-          date: new Date().toISOString().slice(0, 10),
-          status: "Pending",
-        };
-        set({ orders: [order, ...get().orders] });
+type OrdersState = {
+  orders: Order[];
+  loading: boolean;
+  fetchOrders: () => Promise<void>;
+  fetchAllOrders: () => Promise<void>;
+  place: (o: CheckoutPayload) => Promise<Order>;
+  setStatus: (id: string, status: OrderStatus) => Promise<void>;
+  adminUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+};
 
-        // Notifications
-        useNotifications.getState().addNotification({
-          type: "order",
-          title: "Order Placed! 🛒",
-          message: `Your order ${order.id} has been received and is pending payment.`,
-          link: `/account/orders/${order.id}`,
-        });
+export const useOrders = create<OrdersState>((set, get) => ({
+  orders: [],
+  loading: false,
 
-        useNotifications.getState().addNotification({
-          type: "admin_alert",
-          title: "New Order Received 🛍️",
-          message: `${order.customer.name} just placed an order for GH₵${order.total.toFixed(2)}.`,
-          link: `/admin/orders/${order.id}`,
-        });
+  fetchOrders: async () => {
+    set({ loading: true });
+    try {
+      const res = await api.get('/orders/my-orders');
+      set({ orders: res.data, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
 
-        return order;
-      },
-      setStatus: (id, status) => {
-        set((s) => ({
-          orders: s.orders.map((o) =>
-            o.id === id
-              ? { ...o, status, tracking: status === "Shipped" || status === "Delivered" ? o.tracking ?? `GH${Math.floor(Math.random() * 9000000 + 1000000)}` : o.tracking }
-              : o,
-          ),
-        }));
+  fetchAllOrders: async () => {
+    set({ loading: true });
+    try {
+      const res = await api.get('/admin/orders');
+      set({ orders: res.data, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
 
-        // Notification for status change
-        const order = get().orders.find(o => o.id === id);
-        if (order) {
-          const statusMessages: Record<string, string> = {
-            Paid: "Payment confirmed 💳. We are processing your order.",
-            Shipped: "Order shipped 🚚. Your package is on its way!",
-            Delivered: "Order delivered ✅. Enjoy your purchase!",
-            Cancelled: "Order cancelled ❌. Contact support for details.",
-            Refunded: "Refund processed 💰. The amount should reflect soon.",
-          };
+  place: async (o) => {
+    set({ loading: true });
+    try {
+      const res = await api.post('/orders/checkout', o);
+      const order = res.data.order;
+      
+      set((s) => ({ orders: [order, ...s.orders], loading: false }));
 
-          if (statusMessages[status]) {
-            useNotifications.getState().addNotification({
-              type: "order",
-              title: `Order ${status}`,
-              message: statusMessages[status],
-              link: `/account/orders/${id}`,
-            });
-          }
-        }
-      },
-      assignPartner: (id, partnerId, trackingUrl) => set((s) => ({
-        orders: s.orders.map((o) => o.id === id ? { ...o, deliveryPartnerId: partnerId, trackingUrl: trackingUrl || o.trackingUrl } : o)
-      })),
-      remove: (id) => set((s) => ({ orders: s.orders.filter((o) => o.id !== id) })),
-    }),
-    { name: "yaa-orders-v1" },
-  ),
-);
+      useNotifications.getState().addNotification({
+        type: "order",
+        title: "Order Placed! 🛒",
+        message: `Your order ${order.id} has been received.`,
+        link: `/account/orders/${order.id}`,
+      });
+
+      return order;
+    } catch (err: unknown) {
+      set({ loading: false });
+      throw err;
+    }
+  },
+
+  setStatus: async (id, status) => {
+    set({ loading: true });
+    try {
+      await api.put(`/orders/${id}/status`, { status });
+      set((s) => ({
+        orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  adminUpdateStatus: async (id, status) => {
+    set({ loading: true });
+    try {
+      await api.put(`/admin/orders/${id}/status`, { status });
+      set((s) => ({
+        orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  remove: async (id) => {
+    set({ loading: true });
+    try {
+      await api.delete(`/orders/${id}`);
+      set((s) => ({
+        orders: s.orders.filter((o) => o.id !== id),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+}));
 
 // =================== PAYMENT METHODS (per user) ===================
 export type PaymentMethod = {
@@ -347,31 +496,89 @@ export type Transaction = {
 
 type TransactionsState = {
   transactions: Transaction[];
-  add: (t: Omit<Transaction, "id" | "date">) => void;
-  setStatus: (id: string, status: Transaction["status"]) => void;
-  remove: (id: string) => void;
+  loading: boolean;
+  fetch: () => Promise<void>;
+  add: (t: Omit<Transaction, "id" | "date">) => Promise<void>;
+  setStatus: (id: string, status: Transaction["status"]) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+  clearAll: () => void;
 };
 
-export const useTransactions = create<TransactionsState>()(
-  persist(
-    (set) => ({
-      transactions: [],
-      add: (t) => set((s) => ({
-        transactions: [
-          { ...t, id: crypto.randomUUID(), date: new Date().toISOString() },
-          ...s.transactions
-        ]
-      })),
-      setStatus: (id, status) => set((s) => ({
-        transactions: s.transactions.map((t) => t.id === id ? { ...t, status } : t)
-      })),
-      remove: (id) => set((s) => ({
-        transactions: s.transactions.filter((t) => t.id !== id)
-      }))
-    }),
-    { name: "yaa-transactions-v2" }
-  )
-);
+export const useTransactions = create<TransactionsState>((set, get) => ({
+  transactions: [],
+  loading: false,
+
+  fetch: async () => {
+    set({ loading: true });
+    try {
+      const res = await api.get('/admin/payments');
+      interface BackendPayment {
+        id: string;
+        orderId: string;
+        transactionId?: string;
+        amount: string | number;
+        paymentGateway: string;
+        status: string;
+        createdAt: string;
+        Order?: {
+          customer?: {
+            fullName: string;
+            email: string;
+          };
+        };
+      }
+      const mapped = res.data.map((p: BackendPayment) => ({
+        id: p.id,
+        orderId: p.orderId,
+        reference: p.transactionId || 'N/A',
+        customerName: p.Order?.customer?.fullName || 'Guest',
+        customerEmail: p.Order?.customer?.email || 'N/A',
+        amount: Number(p.amount),
+        channel: p.paymentGateway === 'paystack' ? 'Paystack' : (p.paymentGateway === 'momo' ? 'MoMo' : 'Bank Transfer'),
+        status: p.status === 'successful' ? 'success' : (p.status === 'failed' ? 'failed' : 'pending'),
+        date: p.createdAt
+      }));
+      set({ transactions: mapped, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  add: async (t) => {
+    set({ loading: true });
+    try {
+      // In a real app, this might create an offline payment record
+      // For now we just mock the push to backend or re-fetch
+      await get().fetch();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  setStatus: async (id, status) => {
+    set({ loading: true });
+    try {
+      const apiStatus = status === 'success' ? 'successful' : (status === 'failed' ? 'failed' : 'pending');
+      await api.put(`/admin/payments/${id}/status`, { status: apiStatus });
+      await get().fetch();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  remove: async (id) => {
+    // Admin generally shouldn't delete financial records, but we'll allow it for demo
+    set({ loading: true });
+    try {
+      await api.delete(`/admin/payments/${id}`);
+      await get().fetch();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  clearAll: () => set({ transactions: [] })
+}));
 
 
 // =================== SHIPPING & DELIVERY ===================
@@ -396,41 +603,79 @@ export type ShippingZone = {
 
 type ShippingState = {
   zones: ShippingZone[];
-  addZone: (z: Omit<ShippingZone, "id">) => void;
-  updateZone: (id: string, patch: Partial<ShippingZone>) => void;
-  removeZone: (id: string) => void;
-  addMethod: (zoneId: string, m: Omit<ShippingMethod, "id">) => void;
-  removeMethod: (zoneId: string, methodId: string) => void;
+  loading: boolean;
+  fetchZones: () => Promise<void>;
+  addZone: (z: Omit<ShippingZone, "id" | "methods">) => Promise<void>;
+  updateZone: (id: string, patch: Partial<ShippingZone>) => Promise<void>;
+  removeZone: (id: string) => Promise<void>;
+  addMethod: (zoneId: string, m: Omit<ShippingMethod, "id">) => Promise<void>;
+  removeMethod: (zoneId: string, methodId: string) => Promise<void>;
 };
 
-export const useShipping = create<ShippingState>()(
-  persist(
-    (set) => ({
-      zones: [
-        {
-          id: "gh-main",
-          name: "Ghana (Standard)",
-          regions: ["Greater Accra", "Ashanti", "Central"],
-          enabled: true,
-          methods: [
-            { id: "flat-1", name: "Flat Rate", type: "flat", price: 20 },
-            { id: "free-1", name: "Free over 500", type: "free_threshold", price: 0, threshold: 500 }
-          ]
-        }
-      ],
-      addZone: (z) => set((s) => ({ zones: [...s.zones, { ...z, id: crypto.randomUUID() }] })),
-      updateZone: (id, patch) => set((s) => ({ zones: s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) })),
-      removeZone: (id) => set((s) => ({ zones: s.zones.filter((z) => z.id !== id) })),
-      addMethod: (zoneId, m) => set((s) => ({
-        zones: s.zones.map((z) => z.id === zoneId ? { ...z, methods: [...z.methods, { ...m, id: crypto.randomUUID() }] } : z)
-      })),
-      removeMethod: (zoneId, methodId) => set((s) => ({
-        zones: s.zones.map((z) => z.id === zoneId ? { ...z, methods: z.methods.filter((m) => m.id !== methodId) } : z)
-      }))
-    }),
-    { name: "yaa-shipping-v1" }
-  )
-);
+export const useShipping = create<ShippingState>((set, get) => ({
+  zones: [],
+  loading: false,
+
+  fetchZones: async () => {
+    set({ loading: true });
+    try {
+      const res = await api.get('/shipping/zones');
+      set({ zones: res.data, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  addZone: async (z) => {
+    set({ loading: true });
+    try {
+      await api.post('/shipping/zones', z);
+      await get().fetchZones();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  updateZone: async (id, patch) => {
+    set({ loading: true });
+    try {
+      await api.put(`/shipping/zones/${id}`, patch);
+      await get().fetchZones();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  removeZone: async (id) => {
+    set({ loading: true });
+    try {
+      await api.delete(`/shipping/zones/${id}`);
+      await get().fetchZones();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  addMethod: async (zoneId, m) => {
+    set({ loading: true });
+    try {
+      await api.post(`/shipping/zones/${zoneId}/methods`, m);
+      await get().fetchZones();
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+
+  removeMethod: async (zoneId, methodId) => {
+    set({ loading: true });
+    try {
+      await api.delete(`/shipping/methods/${methodId}`);
+      await get().fetchZones();
+    } catch (err) {
+      set({ loading: false });
+    }
+  }
+}));
 
 export type DeliveryPartner = {
   id: string;
@@ -442,24 +687,48 @@ export type DeliveryPartner = {
 
 type DeliveryPartnersState = {
   partners: DeliveryPartner[];
-  add: (p: Omit<DeliveryPartner, "id">) => void;
-  update: (id: string, patch: Partial<DeliveryPartner>) => void;
-  remove: (id: string) => void;
+  fetchPartners: () => Promise<void>;
+  add: (p: Omit<DeliveryPartner, "id">) => Promise<void>;
+  update: (id: string, patch: Partial<DeliveryPartner>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
 };
 
 export const useDeliveryPartners = create<DeliveryPartnersState>()(
-  persist(
-    (set) => ({
-      partners: [
-        { id: "p-1", name: "FedEx Ghana", contact: "+233 302 123456", trackingUrlTemplate: "https://fedex.com/track?q={{id}}", status: "active" },
-        { id: "p-2", name: "DHL Express", contact: "+233 302 654321", trackingUrlTemplate: "https://dhl.com/track?id={{id}}", status: "active" }
-      ],
-      add: (p) => set((s) => ({ partners: [...s.partners, { ...p, id: crypto.randomUUID() }] })),
-      update: (id, patch) => set((s) => ({ partners: s.partners.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
-      remove: (id) => set((s) => ({ partners: s.partners.filter((p) => p.id !== id) }))
-    }),
-    { name: "yaa-delivery-partners-v1" }
-  )
+  (set, get) => ({
+    partners: [],
+    fetchPartners: async () => {
+      try {
+        const res = await api.get('/shipping/partners');
+        set({ partners: res.data });
+      } catch (err) {
+        console.error('Failed to fetch partners:', err);
+      }
+    },
+    add: async (p) => {
+      try {
+        await api.post('/shipping/partners', p);
+        await get().fetchPartners();
+      } catch (err) {
+        console.error('Failed to add partner:', err);
+      }
+    },
+    update: async (id, patch) => {
+      try {
+        await api.put(`/shipping/partners/${id}`, patch);
+        await get().fetchPartners();
+      } catch (err) {
+        console.error('Failed to update partner:', err);
+      }
+    },
+    remove: async (id) => {
+      try {
+        await api.delete(`/shipping/partners/${id}`);
+        await get().fetchPartners();
+      } catch (err) {
+        console.error('Failed to remove partner:', err);
+      }
+    }
+  })
 );
 
 // =================== USERS (registry of all signed-up accounts) ===================
@@ -517,17 +786,13 @@ export type RegisterPayload = {
 
 type UsersState = {
   users: AppUser[];
-  _hasHydrated: boolean;
-  setHasHydrated: (state: boolean) => void;
-  register: (payload: RegisterPayload) => AppUser | null;
-  authenticate: (email: string, password: string) => AppUser | null;
-  setStatus: (id: string, status: AppUser["status"]) => void;
-  setRole: (id: string, role: AdminRole, permissions?: AdminPermissions) => void;
-  update: (id: string, patch: Partial<AppUser>) => void;
-  logActivity: (userId: string, action: string, target: string) => void;
-  remove: (id: string) => void;
-  exists: (email: string) => boolean;
-  setPasswordByEmail: (email: string, password: string) => boolean;
+  fetchUsers: () => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<AppUser | null>;
+  setStatus: (id: string, status: AppUser["status"]) => Promise<void>;
+  setRole: (id: string, role: AdminRole, permissions?: AdminPermissions) => Promise<void>;
+  update: (id: string, patch: Partial<AppUser>) => Promise<void>;
+  logActivity: (userId: string, action: string, target: string) => Promise<void>;
+  remove: (id: string) => Promise<void>;
 };
 
 const defaultPermissions: AdminPermissions = {
@@ -548,126 +813,91 @@ const superAdminPermissions: AdminPermissions = {
   can_view_logs: true,
 };
 
-// Seeded admin so the user can always get into the admin dashboard
-const seededAdmin: AppUser = {
-  id: "admin-seed",
-  name: "Yaa Baby Admin",
-  email: "admin@yaababy.gh",
-  password: "admin1234",
-  role: "Super Admin",
-  permissions: superAdminPermissions,
-  activities: [],
-  createdAt: new Date().toISOString().slice(0, 10),
-  status: "active",
-  emailVerified: true,
-  phoneVerified: true,
-};
+// No seeded admin - fetch from backend instead
 
 export const useUsers = create<UsersState>()(
-  persist(
-    (set, get) => ({
-      users: [seededAdmin],
-      _hasHydrated: false,
-      setHasHydrated: (state) => set({ _hasHydrated: state }),
-      register: (payload) => {
-        const e = payload.email.trim().toLowerCase();
-        if (get().users.some((u) => u.email.toLowerCase() === e)) return null;
-        
-        const role = payload.role ?? "Customer";
-        const permissions = payload.permissions || (role === "Super Admin" ? superAdminPermissions : (role === "Customer" ? undefined : defaultPermissions));
-
-        const u: AppUser = {
-          id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
-          name: payload.name.trim(),
-          email: e,
-          password: payload.password,
-          role,
-          permissions,
-          activities: [],
-          createdAt: new Date().toISOString().slice(0, 10),
-          status: "active",
-          phone: payload.phone,
-          country: payload.country,
-          region: payload.region,
-          avatar: payload.avatar,
-          referralCode: payload.referralCode,
-          emailVerified: false,
-          phoneVerified: false,
-        };
-        
-        set({ users: [...get().users, u] });
-
-        // Notifications
-        useNotifications.getState().addNotification({
-          type: "account",
-          title: "Account Created ✅",
-          message: `Welcome to YaaBaby, ${u.name}! Start exploring our baby essentials.`,
-          link: "/account",
-        });
-
-        if (role !== "Customer") {
-          useNotifications.getState().addNotification({
-            type: "admin_alert",
-            title: "New Admin Registered 🛡️",
-            message: `${u.name} has been added as ${role}.`,
-            link: "/admin/management",
-          });
+  (set, get) => ({
+    users: [],
+    fetchUsers: async () => {
+        try {
+          const res = await api.get('/admin/users');
+          interface BackendUser {
+            id: string;
+            fullName: string;
+            email: string;
+            role: string;
+            isBanned: boolean;
+            createdAt?: string;
+          }
+          const mapped = res.data.map((u: BackendUser) => ({
+            id: u.id,
+            name: u.fullName,
+            email: u.email,
+            role: u.role === 'customer' ? 'Customer' : (u.role === 'super_admin' ? 'Super Admin' : (u.role === 'admin' ? 'Admin' : 'Manager')),
+            status: u.isBanned ? 'blocked' : 'active',
+            createdAt: u.createdAt?.split('T')[0]
+          }));
+          set({ users: mapped });
+        } catch (err) {
+          console.error('Failed to fetch users:', err);
         }
-
-        return u;
       },
-      authenticate: (email, password) => {
-        const e = email.trim().toLowerCase();
-        const u = get().users.find((x) => x.email.toLowerCase() === e && x.password === password);
-        if (!u || u.status === "blocked") return null;
-        return u;
+      register: async (payload) => {
+        try {
+          const res = await api.post('/auth/register', {
+            fullName: payload.name,
+            email: payload.email,
+            password: payload.password,
+            role: payload.role?.toLowerCase() || 'customer'
+          });
+          await get().fetchUsers();
+          return res.data.user;
+        } catch (err) {
+          console.error('Registration failed:', err);
+          return null;
+        }
       },
-      setStatus: (id, status) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, status } : u)) })),
-      setRole: (id, role, permissions) => 
-        set((s) => ({ 
-          users: s.users.map((u) => (u.id === id ? { 
-            ...u, 
-            role, 
-            permissions: permissions || (role === "Super Admin" ? superAdminPermissions : (role === "Customer" ? undefined : defaultPermissions)) 
-          } : u)) 
-        })),
-      update: (id, patch) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) })),
-      logActivity: (userId, action, target) => {
-        set((s) => ({
-          users: s.users.map((u) => u.id === userId ? {
-            ...u,
-            activities: [
-              { id: crypto.randomUUID(), action, target, timestamp: new Date().toISOString() },
-              ...(u.activities || [])
-            ].slice(0, 50) // Keep last 50 activities
-          } : u)
-        }));
+      setStatus: async (id, status) => {
+        try {
+          const isBanned = status === 'blocked';
+          await api.put(`/admin/users/${id}/status`, { isBanned });
+          await get().fetchUsers();
+        } catch (err) {
+          console.error('Failed to set user status:', err);
+        }
       },
-      remove: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
-      exists: (email) => get().users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase()),
-      setPasswordByEmail: (email, password) => {
-        const e = email.trim().toLowerCase();
-        let found = false;
-        set((s) => ({
-          users: s.users.map((u) => {
-            if (u.email.toLowerCase() === e) { found = true; return { ...u, password }; }
-            return u;
-          }),
-        }));
-        return found;
+      setRole: async (id, role, permissions) => {
+        try {
+          await api.put(`/admin/users/${id}/role`, { role: role.toLowerCase().replace(' ', '_'), permissions });
+          await get().fetchUsers();
+        } catch (err) {
+          console.error('Failed to set user role:', err);
+        }
+      },
+      update: async (id, patch) => {
+        try {
+          await api.put(`/admin/users/${id}`, patch);
+          await get().fetchUsers();
+        } catch (err) {
+          console.error('Failed to update user:', err);
+        }
+      },
+      logActivity: async (userId, action, target) => {
+        try {
+          await api.post(`/admin/users/${userId}/activity`, { action, target });
+        } catch (err) {
+          console.error('Failed to log activity:', err);
+        }
+      },
+      remove: async (id) => {
+        try {
+          await api.delete(`/admin/users/${id}`);
+          await get().fetchUsers();
+        } catch (err) {
+          console.error('Failed to remove user:', err);
+        }
       },
     }),
-    {
-      name: "yaa-users-v2", // Bump version for schema change
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.setHasHydrated(true);
-          const hasAdmin = state.users.some((u) => u.email === seededAdmin.email);
-          if (!hasAdmin) state.users.push(seededAdmin);
-        }
-      },
-    },
-  ),
 );
 
 // =================== OTP (mock) ===================
@@ -679,35 +909,34 @@ type OtpRecord = { kind: OtpKind; target: string; code: string; createdAt: numbe
 type OtpState = {
   pending: OtpRecord[];
   issue: (kind: OtpKind, target: string) => string;
-  verify: (kind: OtpKind, target: string, code: string) => boolean;
-  clear: (kind: OtpKind, target: string) => void;
+  send: (email: string) => Promise<boolean>;
+  verify: (email: string, code: string) => Promise<boolean>;
 };
 
 export const useOtp = create<OtpState>()(
-  persist(
-    (set, get) => ({
-      pending: [],
-      issue: (kind, target) => {
-        const code = String(Math.floor(100000 + Math.random() * 900000));
-        const t = target.trim().toLowerCase();
-        const others = get().pending.filter((p) => !(p.kind === kind && p.target === t));
-        set({ pending: [...others, { kind, target: t, code, createdAt: Date.now() }] });
-        return code;
-      },
-      verify: (kind, target, code) => {
-        const t = target.trim().toLowerCase();
-        const rec = get().pending.find((p) => p.kind === kind && p.target === t);
-        if (!rec) return false;
-        const fresh = Date.now() - rec.createdAt < 15 * 60 * 1000; // 15 min
-        return fresh && rec.code === code.trim();
-      },
-      clear: (kind, target) => {
-        const t = target.trim().toLowerCase();
-        set((s) => ({ pending: s.pending.filter((p) => !(p.kind === kind && p.target === t)) }));
-      },
-    }),
-    { name: "yaa-otp-v1" },
-  ),
+  (set) => ({
+    pending: [],
+    issue: (kind, target) => {
+      // Dummy implementation for type safety, backend handles actual issuance
+      return "000000";
+    },
+    send: async (email) => {
+      try {
+        await api.post('/auth/request-otp', { email });
+        return true;
+      } catch (err) {
+        return false;
+      }
+    },
+    verify: async (email, code) => {
+      try {
+        await api.post('/auth/verify', { otp: code });
+        return true;
+      } catch (err) {
+        return false;
+      }
+    },
+  })
 );
 
 // =================== WISHLIST (per current user) ===================
@@ -731,8 +960,34 @@ export const useWishlist = create<WishlistState>()(
 );
 
 // =================== SYSTEM SETTINGS (Maintenance Mode, etc.) ===================
+interface SiteConfig {
+  name: string;
+  slogan: string;
+  logo: string;
+  favicon: string;
+  maintenanceMode: boolean;
+}
+
+interface ContactInfo {
+  email: string;
+  phone: string;
+  address: string;
+  whatsapp: string;
+}
+
+interface SocialLinks {
+  instagram: string;
+  facebook: string;
+  twitter: string;
+  tiktok: string;
+}
+
 type SettingsState = {
   maintenanceMode: boolean;
+  siteConfig: SiteConfig | null;
+  contactInfo: ContactInfo | null;
+  socialLinks: SocialLinks | null;
+  fetchSettings: () => Promise<void>;
   setMaintenanceMode: (enabled: boolean) => void;
 };
 
@@ -740,8 +995,73 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       maintenanceMode: false,
+      siteConfig: null,
+      contactInfo: null,
+      socialLinks: null,
+      fetchSettings: async () => {
+        try {
+          const res = await api.get('/settings');
+          const settings = res.data;
+          set({ 
+            siteConfig: settings.site_config,
+            contactInfo: settings.contact_info,
+            socialLinks: settings.social_links,
+            maintenanceMode: settings.site_config?.maintenanceMode || false 
+          });
+        } catch (err) {
+          console.error('Failed to fetch settings:', err);
+        }
+      },
       setMaintenanceMode: (maintenanceMode) => set({ maintenanceMode }),
     }),
     { name: "yaa-settings-v1" }
   )
 );
+
+// =================== VISUAL SEARCH (Image based discovery) ===================
+export type VisualSearchRecord = {
+  id: string;
+  imageUrl: string;
+  detectedTags: string[];
+  resultsCount: number;
+  status: 'processing' | 'completed' | 'failed';
+  customerId?: string;
+  isRequest?: boolean;
+  adminNotes?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+};
+
+type VisualSearchState = {
+  history: VisualSearchRecord[];
+  loading: boolean;
+  fetchHistory: () => Promise<void>;
+  updateRecord: (id: string, patch: Partial<VisualSearchRecord>) => Promise<void>;
+};
+
+export const useVisualSearch = create<VisualSearchState>((set, get) => ({
+  history: [],
+  loading: false,
+  fetchHistory: async () => {
+    set({ loading: true });
+    try {
+      const res = await api.get('/visual-search/history');
+      set({ history: res.data, loading: false });
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+  updateRecord: async (id, patch) => {
+    set({ loading: true });
+    try {
+      // Assuming we have an admin endpoint for this or we reuse the request one
+      await api.put(`/admin/visual-search/${id}`, patch);
+      set((s) => ({
+        history: s.history.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+        loading: false
+      }));
+    } catch (err) {
+      set({ loading: false });
+    }
+  },
+}));

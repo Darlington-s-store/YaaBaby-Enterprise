@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ArrowRight, Truck, ShieldCheck, RotateCcw, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,15 @@ import { ProductCard } from "@/components/ProductCard";
 import { categories, heroSlides, stats, testimonials } from "@/data/catalog";
 import heroImg from "@/assets/hero-merch.jpg";
 import { useProducts } from "@/store/useProducts";
+import { useTaxonomy } from "@/store/useStore";
+import { cn } from "@/lib/utils";
 
 const Marquee = () => (
   <div className="bg-primary text-primary-foreground py-3 overflow-hidden border-y border-accent/20">
     <div className="marquee flex gap-12 whitespace-nowrap text-sm font-medium">
       {Array.from({ length: 2 }).map((_, k) => (
         <div key={k} className="flex gap-12 shrink-0">
-          {["⚡ Flash sale up to 40% off", "🚚 Free delivery over GH₵500", "✨ New: Maison Yaa fragrances", "🎁 Earn 5% back as store credit", "💳 Pay with Paystack & MoMo", "🇬🇭 Authenticated, ships across Ghana"].map((t) => (
+          {["Flash sale up to 40% off", "Free delivery over GH₵500", "New: Maison Yaa fragrances", "Earn 5% back as store credit", "Pay with Paystack & MoMo", "Authenticated, ships across Ghana"].map((t) => (
             <span key={t}>{t}</span>
           ))}
         </div>
@@ -56,84 +58,118 @@ const Countdown = () => {
 };
 
 const Home = () => {
-  const products = useProducts((s) => s.products);
+  const { products, fetchProducts } = useProducts();
+  const { categories: liveCategories, fetchCategories } = useTaxonomy();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    if (products.length === 0) fetchProducts();
+    if (liveCategories.length === 0) fetchCategories();
+  }, [products.length, liveCategories.length, fetchProducts, fetchCategories]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
   const featured = products.slice(0, 4);
-  const trending = products.slice(2, 8);
+  const trending = products.slice(0, 8);
+  const newArrivals = [...products].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 4);
 
   return (
     <>
-      {/* HERO — full-bleed background image */}
-      <section className="relative overflow-hidden text-primary-foreground min-h-[640px] lg:min-h-[720px] flex items-center">
-        <img
-          src={heroImg}
-          alt="Curated YAA BABY products"
-          className="absolute inset-0 w-full h-full object-cover"
-          loading="eager"
-        />
-        {/* Cinematic overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/75 to-primary/30" />
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-[var(--gradient-radial-gold)] opacity-40 mix-blend-overlay" />
-
-        <div className="container-x mx-auto max-w-7xl relative grid lg:grid-cols-12 gap-10 items-center py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
+      {/* HERO — full-bleed carousel */}
+      <section className="relative overflow-hidden text-primary-foreground h-[55vh] lg:h-[70vh] flex items-center">
+        <AnimatePresence mode="wait">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="space-y-6 lg:col-span-7"
+            key={currentSlide}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="absolute inset-0"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-white/10 backdrop-blur px-4 py-1.5 text-xs uppercase tracking-widest">
-              <Sparkles className="size-3.5 text-accent" /> {heroSlides[0].eyebrow}
-            </div>
-            <h1 className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[0.95] font-black drop-shadow-lg">
-              Everything you love.<br />
-              <span className="text-gradient-gold italic">In one storefront.</span>
-            </h1>
-            <p className="text-lg text-primary-foreground/90 max-w-xl leading-relaxed">
-              Electronics, fashion, beauty, and home — curated, authenticated, and delivered across Ghana in 24 hours.
-            </p>
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Button size="lg" asChild className="bg-gold text-accent-foreground hover:opacity-90 shadow-gold rounded-full font-semibold h-12 px-7">
-                <Link to="/shop">Shop the edit <ArrowRight className="ml-2 size-4" /></Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild className="rounded-full h-12 px-7 bg-white/10 border-white/30 hover:bg-white/20 text-primary-foreground backdrop-blur">
-                <Link to="/about">Our story</Link>
-              </Button>
-            </div>
-            <div className="grid grid-cols-4 gap-4 pt-8 border-t border-white/15 max-w-xl">
-              {stats.map((s) => (
-                <div key={s.label}>
-                  <div className="font-display text-2xl lg:text-3xl font-bold text-accent">{s.value}</div>
-                  <div className="text-xs text-primary-foreground/70 mt-0.5">{s.label}</div>
+            <img
+              src={heroImg}
+              alt="Curated YAA BABY products"
+              className="absolute inset-0 w-full h-full object-cover scale-105"
+              loading="eager"
+            />
+            {/* Cinematic overlays */}
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/80 to-primary/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-[var(--gradient-radial-gold)] opacity-40 mix-blend-overlay" />
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="container-x mx-auto max-w-7xl relative z-10 py-6 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSlide}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="space-y-4"
+              >
+                <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-white/10 backdrop-blur px-4 py-1.5 text-xs uppercase tracking-widest">
+                  <Sparkles className="size-3.5 text-accent" /> {heroSlides[currentSlide].eyebrow}
                 </div>
+                <h1 className="font-display text-5xl md:text-6xl lg:text-[5.5rem] leading-[0.9] font-black drop-shadow-xl whitespace-pre-line">
+                  {heroSlides[currentSlide].title}
+                </h1>
+                <p className="text-xl text-primary-foreground/90 max-w-xl leading-relaxed font-medium">
+                  {heroSlides[currentSlide].subtitle}
+                </p>
+                <div className="flex flex-wrap items-center gap-4 pt-4">
+                  <Button size="lg" asChild className="bg-gold text-accent-foreground hover:opacity-90 rounded-full font-bold h-[3.25rem] px-9 text-lg">
+                    <Link to={heroSlides[currentSlide].href}>{heroSlides[currentSlide].cta} <ArrowRight className="ml-2 size-5" /></Link>
+                  </Button>
+                  <Button size="lg" variant="outline" asChild className="rounded-full h-[3.25rem] px-9 text-lg bg-white/10 border-white/30 hover:bg-white/20 text-primary-foreground backdrop-blur">
+                    <Link to="/about">Our story</Link>
+                  </Button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            <div className="flex gap-2 mt-8">
+              {heroSlides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-500",
+                    i === currentSlide ? "w-12 bg-gold" : "w-4 bg-white/30 hover:bg-white/50"
+                  )}
+                />
               ))}
             </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 1, delay: 0.3 }}
-            className="hidden lg:block lg:col-span-5"
-          >
-            <div className="bg-card/95 backdrop-blur-xl text-foreground p-6 rounded-3xl shadow-elegant max-w-sm ml-auto">
-              <div className="flex items-center gap-1 mb-2">
-                {[...Array(5)].map((_, i) => <Star key={i} className="size-4 fill-accent text-accent" />)}
-              </div>
-              <p className="text-sm leading-snug text-muted-foreground italic">"Genuine, fast, and packaged beautifully. The detail is unmatched in Accra."</p>
-              <div className="mt-3 pt-3 border-t flex items-center gap-3">
-                <div className="size-10 rounded-full bg-emerald-gold grid place-items-center text-primary-foreground font-bold text-sm">A</div>
-                <div>
-                  <div className="text-sm font-semibold">Ama Owusu</div>
-                  <div className="text-xs text-muted-foreground">Verified buyer · Accra</div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       <Marquee />
+
+      {/* NEW ARRIVALS */}
+      {newArrivals.length > 0 && (
+        <section className="container-x mx-auto max-w-7xl py-16 lg:py-24">
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-2">New Arrivals</p>
+              <h2 className="font-display text-3xl lg:text-4xl font-bold">Just landed in store</h2>
+            </div>
+            <Link to="/shop" className="text-sm font-medium text-primary hover:underline hidden sm:inline-flex items-center gap-1">
+              Shop all new <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+            {newArrivals.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+          </div>
+        </section>
+      )}
 
       {/* CATEGORIES */}
       <section className="container-x mx-auto max-w-7xl py-16 lg:py-24">
@@ -147,7 +183,7 @@ const Home = () => {
           </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {categories.map((c, i) => (
+          {(liveCategories.length > 0 ? liveCategories : categories).map((c, i) => (
             <motion.div
               key={c.id}
               initial={{ opacity: 0, y: 20 }}
@@ -236,33 +272,35 @@ const Home = () => {
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="container-x mx-auto max-w-7xl py-16 lg:py-24">
-        <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-2">Loved by customers</p>
-          <h2 className="font-display text-3xl lg:text-4xl font-bold">Stories from our community</h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-5">
-          {testimonials.map((t, i) => (
-            <motion.div
-              key={t.name}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-card border rounded-2xl p-7 shadow-card"
-            >
-              <div className="flex gap-0.5 mb-4">
-                {[...Array(t.rating)].map((_, k) => <Star key={k} className="size-4 fill-accent text-accent" />)}
-              </div>
-              <p className="text-foreground/85 leading-relaxed mb-6 font-display italic text-lg">"{t.quote}"</p>
-              <div>
-                <div className="font-semibold text-sm">{t.name}</div>
-                <div className="text-xs text-muted-foreground">{t.role}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
+      {testimonials.length > 0 && (
+        <section className="container-x mx-auto max-w-7xl py-16 lg:py-24">
+          <div className="text-center mb-12">
+            <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-2">Loved by customers</p>
+            <h2 className="font-display text-3xl lg:text-4xl font-bold">Stories from our community</h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-5">
+            {testimonials.map((t, i) => (
+              <motion.div
+                key={t.name}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-card border rounded-2xl p-7 shadow-card"
+              >
+                <div className="flex gap-0.5 mb-4">
+                  {[...Array(t.rating)].map((_, k) => <Star key={k} className="size-4 fill-accent text-accent" />)}
+                </div>
+                <p className="text-foreground/85 leading-relaxed mb-6 font-display italic text-lg">"{t.quote}"</p>
+                <div>
+                  <div className="font-semibold text-sm">{t.name}</div>
+                  <div className="text-xs text-muted-foreground">{t.role}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* NEWSLETTER */}
       <section className="container-x mx-auto max-w-7xl pb-20">

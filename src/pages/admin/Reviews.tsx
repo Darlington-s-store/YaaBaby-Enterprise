@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { 
   Star, Search, MessageSquare, 
   CheckCircle2, XCircle, Trash2, Flag,
@@ -36,7 +36,12 @@ const StatusBadge = ({ status }: { status: Review["status"] }) => {
 };
 
 const AdminReviews = () => {
-  const { reviews, setStatus, reply, toggleFlag, remove } = useReviews();
+  const { reviews, fetchReviews, setStatus, reply, toggleFlag, remove } = useReviews();
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
   const admin = useAuth((s) => s.user);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -55,7 +60,7 @@ const AdminReviews = () => {
 
   const handleReply = () => {
     if (!replyReviewId || !replyText.trim() || !admin) return;
-    reply(replyReviewId, replyText, admin.name);
+    reply(replyReviewId, replyText);
     toast.success("Reply posted successfully");
     setReplyReviewId(null);
     setReplyText("");

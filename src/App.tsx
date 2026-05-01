@@ -58,7 +58,7 @@ const MaintenanceGuard = ({ children }: { children: React.ReactNode }) => {
   const { maintenanceMode } = useSettings();
   const location = useLocation();
   const user = useAuth((s) => s.user);
-  const isAdmin = user && user.role !== "Customer";
+  const isAdmin = user && ["admin", "super_admin", "manager"].includes(user.role?.toLowerCase());
   const isLoginPage = location.pathname.startsWith("/admin");
 
   if (maintenanceMode && !isAdmin && !isLoginPage) {
@@ -68,72 +68,76 @@ const MaintenanceGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+import { StoreInitializer } from "@/components/StoreInitializer";
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner position="top-center" />
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <MaintenanceGuard>
-          <Routes>
-            {/* Storefront with header/footer */}
-            <Route element={<Layout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/product/:slug" element={<ProductDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/about" element={<About />} />
-            </Route>
+      <StoreInitializer>
+        <Toaster />
+        <Sonner position="top-center" />
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <MaintenanceGuard>
+            <Routes>
+              {/* Storefront with header/footer */}
+              <Route element={<Layout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/product/:slug" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/about" element={<About />} />
+              </Route>
 
-            {/* Account dashboard (own shell) */}
-            <Route path="/account" element={<AccountLayout />}>
-              <Route index element={<AccountOverview />} />
-              <Route path="orders" element={<AccountOrders />} />
-              <Route path="orders/:id" element={<AccountOrderDetail />} />
-              <Route path="wishlist" element={<AccountWishlist />} />
-              <Route path="addresses" element={<AccountAddresses />} />
-              <Route path="reviews" element={<AccountReviews />} />
-              <Route path="payment" element={<AccountPayment />} />
-              <Route path="notifications" element={<AccountNotifications />} />
-              <Route path="settings" element={<AccountSettings />} />
-            </Route>
+              {/* Account dashboard (own shell) */}
+              <Route path="/account" element={<AccountLayout />}>
+                <Route index element={<AccountOverview />} />
+                <Route path="orders" element={<AccountOrders />} />
+                <Route path="orders/:id" element={<AccountOrderDetail />} />
+                <Route path="wishlist" element={<AccountWishlist />} />
+                <Route path="addresses" element={<AccountAddresses />} />
+                <Route path="reviews" element={<AccountReviews />} />
+                <Route path="payment" element={<AccountPayment />} />
+                <Route path="notifications" element={<AccountNotifications />} />
+                <Route path="settings" element={<AccountSettings />} />
+              </Route>
 
-            {/* Admin dashboard (own shell) */}
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminOverview />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="orders/:id" element={<AdminOrderDetail />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="products/new" element={<AdminProductEditor />} />
-              <Route path="products/:id" element={<AdminProductEditor />} />
-              <Route path="inventory" element={<AdminInventory />} />
-              <Route path="categories" element={<AdminCategories />} />
-              <Route path="reviews" element={<AdminReviews />} />
-              <Route path="shipping" element={<AdminShipping />} />
-              <Route path="customers" element={<AdminCustomers />} />
-              <Route path="customers/:id" element={<AdminCustomerDetail />} />
-              <Route path="customers/:id/edit" element={<AdminCustomerEditor />} />
-              <Route path="management" element={<AdminManagement />} />
-              <Route path="payments" element={<AdminPayments />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="settings" element={<AdminSettings />} />
-              <Route path="profile" element={<AdminProfile />} />
-            </Route>
+              {/* Admin dashboard (own shell) */}
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminOverview />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="orders/:id" element={<AdminOrderDetail />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="products/new" element={<AdminProductEditor />} />
+                <Route path="products/:id" element={<AdminProductEditor />} />
+                <Route path="inventory" element={<AdminInventory />} />
+                <Route path="categories" element={<AdminCategories />} />
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route path="shipping" element={<AdminShipping />} />
+                <Route path="customers" element={<AdminCustomers />} />
+                <Route path="customers/:id" element={<AdminCustomerDetail />} />
+                <Route path="customers/:id/edit" element={<AdminCustomerEditor />} />
+                <Route path="management" element={<AdminManagement />} />
+                <Route path="payments" element={<AdminPayments />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="profile" element={<AdminProfile />} />
+              </Route>
 
-            {/* Auth routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/verify-phone" element={<VerifyPhone />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
+              {/* Auth routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/verify-phone" element={<VerifyPhone />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </MaintenanceGuard>
-      </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </MaintenanceGuard>
+        </BrowserRouter>
+      </StoreInitializer>
     </TooltipProvider>
   </QueryClientProvider>
 );

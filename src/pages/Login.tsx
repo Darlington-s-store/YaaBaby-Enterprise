@@ -20,25 +20,26 @@ const Login = () => {
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) return <Navigate to={user.role !== "Customer" ? "/admin" : redirectTo} replace />;
+  if (user) {
+    const isAdmin = ['admin', 'super_admin', 'manager'].includes(user.role?.toLowerCase());
+    return <Navigate to={isAdmin ? "/admin" : redirectTo} replace />;
+  }
 
   const onSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const r = await signIn(email, password, remember);
+    const r = await signIn(email, password);
     setSubmitting(false);
     if (!r.ok) return toast.error(r.error ?? "Sign in failed");
     toast.success("Welcome back!");
-    navigate(redirectTo);
+    
+    // Check role again for manual navigation after successful sign-in
+    const isAdmin = ['admin', 'super_admin', 'manager'].includes(r.user?.role?.toLowerCase());
+    navigate(isAdmin ? "/admin" : redirectTo);
   };
 
-  const onGoogle = async () => {
-    setSubmitting(true);
-    const r = await googleSignIn(email || undefined);
-    setSubmitting(false);
-    if (!r.ok) return toast.error(r.error ?? "Google sign-in failed");
-    toast.success("Signed in with Google");
-    navigate(redirectTo);
+  const onGoogle = () => {
+    googleSignIn();
   };
 
   return (

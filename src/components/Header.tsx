@@ -9,6 +9,7 @@ import { useCart, useAuth } from "@/store/useCart";
 import { categories } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 import { NotificationCenter } from "./NotificationCenter";
+import { VisualSearchModal } from "./VisualSearchModal";
 
 const navLinks = [
   { label: "Shop", href: "/shop" },
@@ -23,22 +24,23 @@ export const Header = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [visualSearchOpen, setVisualSearchOpen] = useState(false);
 
   return (
     <>
       {/* Promo bar */}
       <div className="bg-primary text-primary-foreground text-xs sm:text-sm">
-        <div className="container-x mx-auto max-w-7xl flex items-center justify-between py-2.5">
-          <span className="hidden sm:inline opacity-80">🇬🇭 Free delivery on orders above GH₵500</span>
+        <div className="container-x mx-auto max-w-7xl flex items-center justify-between py-1.5">
+          <span className="hidden sm:inline opacity-80">Free delivery on orders above GH₵500</span>
           <div className="flex items-center gap-4 mx-auto sm:mx-0">
             <span className="font-medium tracking-wide">⚡ Flash sale — up to 40% off</span>
           </div>
-          <span className="hidden md:inline opacity-80">Trusted by 50,000+ customers</span>
+          <span className="hidden md:inline opacity-80">Trusted by 1,000+ customers</span>
         </div>
       </div>
 
       <header className="sticky top-0 z-40 glass border-b">
-        <div className="container-x mx-auto max-w-7xl flex items-center gap-4 h-16 lg:h-20">
+        <div className="container-x mx-auto max-w-7xl flex items-center gap-4 h-14 lg:h-16">
           <button
             className="lg:hidden p-2 -ml-2"
             onClick={() => setMobileOpen(true)}
@@ -79,7 +81,7 @@ export const Header = () => {
               </>
             ) : (
               <Button variant="ghost" size="sm" asChild className="rounded-full gap-2">
-                <Link to={user.role !== "Customer" ? "/admin" : "/account"}>
+                <Link to={["admin", "super_admin", "manager"].includes(user.role?.toLowerCase()) ? "/admin" : "/account"}>
                   <div className="size-6 rounded-full bg-emerald-gold grid place-items-center text-[10px] font-bold text-primary-foreground">
                     {user.name[0]?.toUpperCase()}
                   </div>
@@ -99,20 +101,7 @@ export const Header = () => {
               <button 
                 type="button"
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                onClick={() => {
-                  useNotifications.getState().addNotification({
-                    type: "search",
-                    title: "Image Uploaded 📸",
-                    message: "Customer uploaded an image for visual search.",
-                    link: "/admin/analytics"
-                  });
-                  useNotifications.getState().addNotification({
-                    type: "admin_alert",
-                    title: "New Image Search 📸",
-                    message: "A new visual search request has been uploaded.",
-                    link: "/admin/analytics"
-                  });
-                }}
+                onClick={() => setVisualSearchOpen(true)}
               >
                 <Camera className="size-4" />
               </button>
@@ -128,7 +117,7 @@ export const Header = () => {
             </Button>
             <NotificationCenter />
             <Button variant="ghost" size="icon" asChild>
-              <Link to={user ? (user.role !== "Customer" ? "/admin" : "/account") : "/login"}>
+              <Link to={user ? (["admin", "super_admin", "manager"].includes(user.role?.toLowerCase()) ? "/admin" : "/account") : "/login"}>
                 <User className="size-5" />
               </Link>
             </Button>
@@ -150,7 +139,17 @@ export const Header = () => {
           <div className="md:hidden container-x pb-3">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input placeholder="Search…" className="pl-11 h-11 rounded-full bg-muted" />
+              <Input placeholder="Search…" className="pl-11 pr-11 h-11 rounded-full bg-muted" />
+              <button 
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                onClick={() => {
+                  setVisualSearchOpen(true);
+                  setSearchOpen(false);
+                }}
+              >
+                <Camera className="size-4" />
+              </button>
             </div>
           </div>
         )}
@@ -194,7 +193,7 @@ export const Header = () => {
                   </div>
                 ) : (
                   <Link
-                    to={user.role !== "Customer" ? "/admin" : "/account"}
+                    to={["admin", "super_admin", "manager"].includes(user.role?.toLowerCase()) ? "/admin" : "/account"}
                     onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-muted text-base font-medium text-primary"
                   >
@@ -218,6 +217,11 @@ export const Header = () => {
           </>
         )}
       </AnimatePresence>
+
+      <VisualSearchModal 
+        isOpen={visualSearchOpen} 
+        onClose={() => setVisualSearchOpen(false)} 
+      />
     </>
   );
 };

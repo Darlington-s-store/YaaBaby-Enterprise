@@ -16,8 +16,11 @@ const AdminLogin = () => {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (user?.role === "admin") return <Navigate to="/admin" replace />;
-  if (user?.role === "customer") return <Navigate to="/account" replace />;
+  const userRole = user?.role?.toLowerCase();
+  const isAdmin = ["admin", "super_admin", "manager"].includes(userRole || "");
+  
+  if (user && isAdmin) return <Navigate to="/admin" replace />;
+  if (user && !isAdmin) return <Navigate to="/account" replace />;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,11 +60,6 @@ const AdminLogin = () => {
           </Button>
         </form>
 
-        <div className="bg-muted/60 rounded-xl p-4 text-xs text-muted-foreground">
-          <p className="font-semibold text-foreground mb-1">Demo credentials</p>
-          <p>Email: <span className="font-mono">admin@yaababy.gh</span></p>
-          <p>Password: <span className="font-mono">admin1234</span></p>
-        </div>
       </div>
     </AuthShell>
   );

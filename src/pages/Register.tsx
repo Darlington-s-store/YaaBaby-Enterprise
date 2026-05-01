@@ -43,7 +43,10 @@ const Register = () => {
 
   const regions = selectedCountry.states;
 
-  if (user) return <Navigate to={user.role !== "Customer" ? "/admin" : "/account"} replace />;
+  if (user) {
+    const isAdmin = ['admin', 'super_admin', 'manager'].includes(user.role?.toLowerCase());
+    return <Navigate to={isAdmin ? "/admin" : "/account"} replace />;
+  }
 
   const onAvatar = (file?: File | null) => {
     if (!file) return;
@@ -73,13 +76,8 @@ const Register = () => {
     navigate("/verify-email", { state: { email, phone } });
   };
 
-  const onGoogle = async () => {
-    setSubmitting(true);
-    const r = await googleSignIn(email || undefined);
-    setSubmitting(false);
-    if (!r.ok) return toast.error(r.error ?? "Google sign-up failed");
-    toast.success("Signed in with Google");
-    navigate("/account");
+  const onGoogle = () => {
+    googleSignIn();
   };
 
   return (

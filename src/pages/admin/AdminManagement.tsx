@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   ShieldCheck, ShieldAlert, Shield, UserCog, 
   Plus, History, Trash2, Key, CheckCircle2, 
@@ -45,8 +45,12 @@ const roleColors: Record<AdminRole, string> = {
 
 const AdminManagement = () => {
   const me = useAuth((s) => s.user)!;
-  const { users, register, setRole, remove, logActivity } = useUsers();
+  const { users, fetchUsers, register, setRole, remove, logActivity } = useUsers();
   
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
   const admins = useMemo(() => users.filter(u => u.role !== "Customer"), [users]);
   
   const [search, setSearch] = useState("");
@@ -72,9 +76,9 @@ const AdminManagement = () => {
     return matchesSearch && matchesRole;
   });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const u = register({ name: newName, email: newEmail, password: newPass, role: newRole });
+    const u = await register({ name: newName, email: newEmail, password: newPass, role: newRole });
     if (!u) return toast.error("Email already registered");
     
     logActivity(me.id, "Created Admin", `${newName} (${newRole})`);
@@ -83,13 +87,13 @@ const AdminManagement = () => {
     setNewName(""); setNewEmail(""); setNewPass(""); setNewRole("Admin");
   };
 
-  const handleUpdatePerms = () => {
+  const handleUpdatePerms = async () => {
     if (!permModalUser || !editingPerms) return;
     const target = admins.find(a => a.id === permModalUser);
     if (!target) return;
 
-    setRole(permModalUser, target.role, editingPerms);
-    logActivity(me.id, "Updated Permissions", target.name);
+    await setRole(permModalUser, target.role, editingPerms);
+    await logActivity(me.id, "Updated Permissions", target.name);
     toast.success("Permissions updated");
     setPermModalUser(null);
   };
@@ -270,9 +274,9 @@ const AdminManagement = () => {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             disabled={isMe || admin.role === "Super Admin"}
-                            onClick={() => {
+                            onClick={async () => {
                               const nextRole = admin.role === "Manager" ? "Admin" : "Manager";
-                              setRole(admin.id, nextRole);
+                              await setRole(admin.id, nextRole as AdminRole);
                               toast.success(`Role updated to ${nextRole}`);
                             }}
                           >
@@ -282,9 +286,9 @@ const AdminManagement = () => {
                           <DropdownMenuItem 
                             disabled={isMe || admin.role === "Super Admin"}
                             className="text-destructive focus:text-destructive"
-                            onClick={() => {
+                            onClick={async () => {
                               if (confirm(`Revoke all access for ${admin.name}? This action is permanent.`)) {
-                                remove(admin.id);
+                                await remove(admin.id);
                                 toast.success("Access revoked");
                               }
                             }}

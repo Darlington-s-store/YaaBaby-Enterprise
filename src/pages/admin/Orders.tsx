@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, Filter, Download, ArrowRight, ShoppingBag } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,12 @@ const tabs = ["All", "Pending", "Paid", "Shipped", "Delivered", "Cancelled", "Re
 
 const Orders = () => {
   const orders = useOrders((s) => s.orders);
+  const { fetchAllOrders } = useOrders();
+
+  useEffect(() => {
+    fetchAllOrders();
+  }, [fetchAllOrders]);
+
   const [tab, setTab] = useState<(typeof tabs)[number]>("All");
   const [q, setQ] = useState("");
   const filtered = orders.filter((o) =>

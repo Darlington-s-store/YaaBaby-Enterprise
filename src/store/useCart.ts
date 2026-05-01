@@ -1,9 +1,18 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import api from "@/services/api";
 import type { Product } from "@/data/catalog";
-import { useUsers, type AdminRole, type AdminPermissions } from "@/store/useStore";
+import { signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
+import { auth, googleProvider } from "@/config/firebase";
+
+declare global {
+  interface Window {
+    confirmationResult: ConfirmationResult;
+  }
+}
 
 export type CartItem = {
+  id?: string;
   productId: string;
   name: string;
   price: number;
@@ -14,131 +23,244 @@ export type CartItem = {
 
 type CartState = {
   items: CartItem[];
-  add: (p: Product, quantity?: number, variant?: string) => void;
-  remove: (productId: string) => void;
-  setQty: (productId: string, quantity: number) => void;
-  clear: () => void;
+  loading: boolean;
+  fetchCart: () => Promise<void>;
+  add: (p: Product, quantity?: number, variant?: string) => Promise<void>;
+  remove: (itemId: string) => Promise<void>;
+  setQty: (itemId: string, quantity: number) => Promise<void>;
+  clear: () => Promise<void>;
   subtotal: () => number;
   count: () => number;
 };
 
 export const useCart = create<CartState>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      add: (p, quantity = 1, variant) =>
-        set((s) => {
-          const existing = s.items.find((i) => i.productId === p.id && i.variant === variant);
-          if (existing) {
-            return {
-              items: s.items.map((i) =>
-                i.productId === p.id && i.variant === variant
-                  ? { ...i, quantity: i.quantity + quantity }
-                  : i,
-              ),
-            };
-          }
-          return {
-            items: [
-              ...s.items,
-              { productId: p.id, name: p.name, price: p.price, image: p.image, quantity, variant },
-            ],
-          };
-        }),
-      remove: (productId) => set((s) => ({ items: s.items.filter((i) => i.productId !== productId) })),
-      setQty: (productId, quantity) =>
+  (set, get) => ({
+    items: [],
+    loading: false,
+
+    fetchCart: async () => {
+      set({ loading: true });
+      try {
+        const res = await api.get('/cart');
+        const items = res.data.items.map((item: { id: string; productId: string; quantity: number; Product: { name: string; basePrice: number; images: { url: string }[] }; ProductVariant?: { color?: string; size?: string; priceOverride?: number } | null }) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.Product.name,
+          price: item.ProductVariant?.priceOverride || item.Product.basePrice,
+          image: item.Product.images?.[0]?.url || '',
+          quantity: item.quantity,
+          variant: item.ProductVariant ? `${item.ProductVariant.color || ''} ${item.ProductVariant.size || ''}` : undefined
+        }));
+        set({ items, loading: false });
+      } catch (err: unknown) {
+        set({ loading: false });
+      }
+    },
+
+    add: async (p, quantity = 1, variant) => {
+      set({ loading: true });
+      try {
+        await api.post('/cart/add', { productId: p.id, quantity, variantId: variant });
+        await get().fetchCart();
+      } catch (err) {
+        set({ loading: false });
+      }
+    },
+
+    remove: async (itemId) => {
+      set({ loading: true });
+      try {
+        await api.delete(`/cart/remove/${itemId}`);
+        set((s) => ({ items: s.items.filter((i) => i.id !== itemId), loading: false }));
+      } catch (err) {
+        set({ loading: false });
+      }
+    },
+
+    setQty: async (itemId, quantity) => {
+      if (quantity <= 0) return get().remove(itemId);
+      set({ loading: true });
+      try {
+        await api.put(`/cart/update/${itemId}`, { quantity });
         set((s) => ({
-          items: s.items
-            .map((i) => (i.productId === productId ? { ...i, quantity } : i))
-            .filter((i) => i.quantity > 0),
-        })),
-      clear: () => set({ items: [] }),
-      subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
-      count: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
-    }),
-    { name: "yaa-cart" },
-  ),
+          items: s.items.map((i) => (i.id === itemId ? { ...i, quantity } : i)),
+          loading: false
+        }));
+      } catch (err) {
+        set({ loading: false });
+      }
+    },
+
+    clear: async () => {
+      // Logic for clearing cart (depends on backend implementation, usually happens after order)
+      set({ items: [] });
+    },
+
+    subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+    count: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
+  })
 );
 
 export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: AdminRole;
-  permissions?: AdminPermissions;
+  role: string;
   avatar?: string;
-};
-
-export type SignUpExtras = {
-  phone?: string;
-  country?: string;
-  region?: string;
-  avatar?: string;
-  referralCode?: string;
+  permissions?: Record<string, unknown>;
 };
 
 type AuthState = {
   user: SessionUser | null;
-  remember: boolean;
-  signUp: (name: string, email: string, password: string, extras?: SignUpExtras) => Promise<{ ok: boolean; error?: string }>;
-  signIn: (email: string, password: string, remember?: boolean) => Promise<{ ok: boolean; error?: string }>;
-  adminSignIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  loading: boolean;
+  signUp: (name: string, email: string, password: string, extras?: Record<string, unknown>) => Promise<{ ok: boolean; user?: SessionUser; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; user?: SessionUser; error?: string }>;
+  adminSignIn: (email: string, password: string) => Promise<{ ok: boolean; user?: SessionUser; error?: string }>;
   signOut: () => void;
-  updateProfile: (patch: Partial<Pick<SessionUser, "name" | "email" | "avatar">>) => void;
-  // Mock Google sign in (creates account if missing)
-  googleSignIn: (mockEmail?: string) => Promise<{ ok: boolean; error?: string }>;
+  initialize: () => Promise<void>;
+  googleSignIn: () => Promise<void>;
+  phoneSignIn: (phone: string, code?: string) => Promise<{ ok: boolean; error?: string; requiresVerification?: boolean }>;
+  updateProfile: (data: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
 };
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
-      remember: true,
+      loading: false,
+
       signUp: async (name, email, password, extras) => {
-        if (!name.trim() || !email.trim() || password.length < 6) {
-          return { ok: false, error: "Please enter your name, email, and a password of 6+ characters." };
+        try {
+          const res = await api.post('/auth/register', { fullName: name, email, password, ...extras });
+          const { accessToken, user } = res.data;
+          const normalizedRole = user.role?.toLowerCase() || 'customer';
+          const sessionUser = { id: user.id, email: user.email, name: user.fullName, role: normalizedRole };
+          localStorage.setItem('accessToken', accessToken);
+          set({ user: sessionUser });
+          return { ok: true, user: sessionUser };
+        } catch (err: unknown) {
+          return { ok: false, error: (err as ApiError).response?.data?.message || "Registration failed" };
         }
-        if (useUsers.getState().exists(email)) {
-          return { ok: false, error: "An account with this email already exists. Please sign in." };
-        }
-        const created = useUsers.getState().register({
-          name, email, password, role: "Customer", ...extras,
-        });
-        if (!created) return { ok: false, error: "Could not create account." };
-        set({ user: { id: created.id, email: created.email, name: created.name, role: created.role, avatar: created.avatar, permissions: created.permissions } });
-        return { ok: true };
       },
-      signIn: async (email, password, remember = true) => {
-        const u = useUsers.getState().authenticate(email, password);
-        if (!u) return { ok: false, error: "Invalid email or password. Don't have an account? Sign up first." };
-        if (u.role !== "Customer") {
-          return { ok: false, error: "Admin accounts must sign in via the admin login page." };
+
+      signIn: async (email, password) => {
+        try {
+          const res = await api.post('/auth/login', { email, password });
+          const { accessToken, user } = res.data;
+          const normalizedRole = user.role?.toLowerCase() || 'customer';
+          const sessionUser = { id: user.id, email: user.email, name: user.fullName, role: normalizedRole };
+          localStorage.setItem('accessToken', accessToken);
+          set({ user: sessionUser });
+          return { ok: true, user: sessionUser };
+        } catch (err: unknown) {
+          return { ok: false, error: (err as ApiError).response?.data?.message || "Login failed" };
         }
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar, permissions: u.permissions }, remember });
-        return { ok: true };
       },
       adminSignIn: async (email, password) => {
-        const u = useUsers.getState().authenticate(email, password);
-        if (!u) return { ok: false, error: "Invalid admin credentials." };
-        if (u.role === "Customer") return { ok: false, error: "This account does not have admin access." };
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar, permissions: u.permissions } });
-        return { ok: true };
+        try {
+          const res = await api.post('/auth/login', { email, password });
+          const { accessToken, user } = res.data;
+          
+          const isAdmin = ['admin', 'super_admin', 'manager'].includes(user.role?.toLowerCase());
+          if (!isAdmin) {
+            return { ok: false, error: "Access denied: Not an administrator" };
+          }
+
+          const normalizedRole = user.role?.toLowerCase() || 'customer';
+          const sessionUser = { id: user.id, email: user.email, name: user.fullName, role: normalizedRole };
+          localStorage.setItem('accessToken', accessToken);
+          set({ user: sessionUser });
+          return { ok: true, user: sessionUser };
+        } catch (err: unknown) {
+          return { ok: false, error: (err as ApiError).response?.data?.message || "Admin login failed" };
+        }
       },
-      googleSignIn: async (mockEmail) => {
-        // Mock Google sign-in: creates an account on the fly with a fake name based on the email.
-        const email = (mockEmail ?? "google.user@gmail.com").trim().toLowerCase();
-        const name = email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        const existing = useUsers.getState().users.find((u) => u.email.toLowerCase() === email);
-        const u = existing ?? useUsers.getState().register({ name, email, password: "google-oauth-mock", role: "Customer" });
-        if (!u) return { ok: false, error: "Could not sign in with Google." };
-        if (u.role !== "Customer") return { ok: false, error: "Admin accounts must use the admin login page." };
-        set({ user: { id: u.id, email: u.email, name: u.name, role: u.role, avatar: u.avatar, permissions: u.permissions } });
-        return { ok: true };
+
+      signOut: () => {
+        localStorage.removeItem('accessToken');
+        api.post('/auth/logout');
+        set({ user: null });
       },
-      signOut: () => set({ user: null }),
-      updateProfile: (patch) =>
-        set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
+
+      initialize: async () => {
+        const token = localStorage.getItem('accessToken');
+        if (token && !get().user) {
+          try {
+            // Placeholder: Backend needs a GET /auth/me or similar
+          } catch (err) {
+            set({ user: null });
+          }
+        }
+      },
+      googleSignIn: async () => {
+        try {
+          const result = await signInWithPopup(auth, googleProvider);
+          const idToken = await result.user.getIdToken();
+          
+          const res = await api.post('/auth/google/firebase', { idToken });
+          const { accessToken, user } = res.data;
+          
+          localStorage.setItem('accessToken', accessToken);
+          const normalizedRole = user.role?.toLowerCase() || 'customer';
+          set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
+        } catch (err: unknown) {
+          console.error("Google Sign-In failed:", err);
+          throw err;
+        }
+      },
+      phoneSignIn: async (phone, code) => {
+        try {
+          // If no code, start the phone auth process
+          if (!code) {
+            const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              size: 'invisible'
+            });
+            const confirmation = await signInWithPhoneNumber(auth, phone, verifier);
+            // Store confirmation in a window variable or similar for the next step
+            window.confirmationResult = confirmation;
+            return { ok: true, requiresVerification: true };
+          }
+
+          // If code is provided, verify it
+          const confirmation = window.confirmationResult;
+          if (!confirmation) return { ok: false, error: "Session expired. Please try again." };
+
+          const result = await confirmation.confirm(code);
+          const idToken = await result.user.getIdToken();
+
+          const res = await api.post('/auth/phone/firebase', { idToken });
+          const { accessToken, user } = res.data;
+
+          localStorage.setItem('accessToken', accessToken);
+          const normalizedRole = user.role?.toLowerCase() || 'customer';
+          set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
+          
+          return { ok: true };
+        } catch (err: unknown) {
+          console.error("Phone Sign-In failed:", err);
+          const message = err instanceof Error ? err.message : "Verification failed";
+          return { ok: false, error: message };
+        }
+      },
+      updateProfile: async (data: Record<string, unknown>) => {
+        try {
+          const res = await api.put('/auth/profile', data);
+          const { user } = res.data;
+          set({ user: { ...get().user!, email: user.email, name: user.fullName } });
+          return { ok: true };
+        } catch (err: unknown) {
+          return { ok: false, error: (err as ApiError).response?.data?.message || "Update failed" };
+        }
+      }
     }),
-    { name: "yaa-auth" },
-  ),
+    { name: "yaa-auth" }
+  )
 );
