@@ -21,4 +21,11 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Backend
+Backend/
+
