@@ -207,6 +207,8 @@ export const useAuth = create<AuthState>()(
             localStorage.setItem('accessToken', accessToken);
             const normalizedRole = user.role?.toLowerCase() || 'customer';
             set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
+          } else {
+            console.log("ℹ️ No Google redirect result found.");
           }
         } catch (err: unknown) {
           console.error("❌ Redirect Auth Error:", err);
