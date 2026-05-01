@@ -209,9 +209,8 @@ export const useAuth = create<AuthState>()(
             set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
           }
         } catch (err: unknown) {
-          const error = err as any; // Cast for specific properties
-          console.error("❌ Redirect Auth Error:", error);
-          if (error.code === 'auth/unauthorized-domain') {
+          console.error("❌ Redirect Auth Error:", err);
+          if (err && typeof err === 'object' && 'code' in err && err.code === 'auth/unauthorized-domain') {
             console.error("👉 FIX: You must add this domain to Firebase Console > Authentication > Settings > Authorized Domains");
           }
         }
