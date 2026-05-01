@@ -193,8 +193,14 @@ export const useAuth = create<AuthState>()(
       initialize: async () => {
         // Handle Google Redirect Result
         try {
+          console.log("🔄 Starting auth initialization...");
+          // Wait a moment for Firebase to be ready
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           console.log("🔄 Checking for Google redirect result...");
           const result = await getRedirectResult(auth);
+          console.log("📊 Redirect result check finished.");
+          
           if (result) {
             console.log("✅ Google redirect detected for:", result.user.email);
             const idToken = await result.user.getIdToken();
