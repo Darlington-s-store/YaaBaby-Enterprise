@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import api from "@/services/api";
 import type { Product } from "@/data/catalog";
-import { signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, googleProvider } from "@/config/firebase";
 
 declare global {
@@ -191,6 +191,21 @@ export const useAuth = create<AuthState>()(
       },
 
       initialize: async () => {
+        // Handle Google Redirect Result
+        try {
+          const result = await getRedirectResult(auth);
+          if (result) {
+            const idToken = await result.user.getIdToken();
+            const res = await api.post('/auth/google/firebase', { idToken });
+            const { accessToken, user } = res.data;
+            localStorage.setItem('accessToken', accessToken);
+            const normalizedRole = user.role?.toLowerCase() || 'customer';
+            set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
+          }
+        } catch (err) {
+          console.error("Redirect Auth Error:", err);
+        }
+
         const token = localStorage.getItem('accessToken');
         if (token && !get().user) {
           try {
@@ -202,15 +217,7 @@ export const useAuth = create<AuthState>()(
       },
       googleSignIn: async () => {
         try {
-          const result = await signInWithPopup(auth, googleProvider);
-          const idToken = await result.user.getIdToken();
-          
-          const res = await api.post('/auth/google/firebase', { idToken });
-          const { accessToken, user } = res.data;
-          
-          localStorage.setItem('accessToken', accessToken);
-          const normalizedRole = user.role?.toLowerCase() || 'customer';
-          set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
+          await signInWithRedirect(auth, googleProvider);
         } catch (err: unknown) {
           console.error("Google Sign-In failed:", err);
           throw err;
