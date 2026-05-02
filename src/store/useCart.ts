@@ -4,6 +4,7 @@ import api from "@/services/api";
 import type { Product } from "@/data/catalog";
 import { signInWithPopup, signInWithRedirect, getRedirectResult, RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth";
 import { auth, googleProvider } from "@/config/firebase";
+import { useNotifications } from "./useNotifications";
 
 declare global {
   interface Window {
@@ -263,7 +264,7 @@ export const useAuth = create<AuthState>()(
             console.log("🌐 Production detected: Using Redirect mode");
             await signInWithRedirect(auth, googleProvider);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Google Sign-In failed:", err);
           throw err;
         }
