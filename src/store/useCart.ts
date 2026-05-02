@@ -237,7 +237,7 @@ export const useAuth = create<AuthState>()(
         const isLocal = window.location.hostname === 'localhost';
         try {
           useNotifications.getState().addNotification({
-            type: "info",
+            type: "account",
             title: "Signing in...",
             message: "Connecting to Google..."
           });
@@ -256,7 +256,7 @@ export const useAuth = create<AuthState>()(
             set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
             
             useNotifications.getState().addNotification({
-              type: "success",
+              type: "account",
               title: "Welcome!",
               message: `Signed in as ${user.fullName}`
             });
