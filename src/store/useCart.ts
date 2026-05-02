@@ -233,9 +233,37 @@ export const useAuth = create<AuthState>()(
         }
       },
       googleSignIn: async () => {
+        const isLocal = window.location.hostname === 'localhost';
         try {
-          await signInWithRedirect(auth, googleProvider);
-        } catch (err: unknown) {
+          useNotifications.getState().addNotification({
+            type: "info",
+            title: "Signing in...",
+            message: "Connecting to Google..."
+          });
+
+          if (isLocal) {
+            console.log("🖥️ Local dev detected: Using Popup mode");
+            const result = await signInWithPopup(auth, googleProvider);
+            const idToken = await result.user.getIdToken();
+            
+            console.log("📡 Sending token to backend...");
+            const res = await api.post('/auth/google/firebase', { idToken });
+            const { accessToken, user } = res.data;
+            
+            localStorage.setItem('accessToken', accessToken);
+            const normalizedRole = user.role?.toLowerCase() || 'customer';
+            set({ user: { id: user.id, email: user.email, name: user.fullName, role: normalizedRole, avatar: user.avatarUrl } });
+            
+            useNotifications.getState().addNotification({
+              type: "success",
+              title: "Welcome!",
+              message: `Signed in as ${user.fullName}`
+            });
+          } else {
+            console.log("🌐 Production detected: Using Redirect mode");
+            await signInWithRedirect(auth, googleProvider);
+          }
+        } catch (err: any) {
           console.error("Google Sign-In failed:", err);
           throw err;
         }
